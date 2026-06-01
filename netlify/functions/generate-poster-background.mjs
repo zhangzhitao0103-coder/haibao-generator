@@ -38,10 +38,9 @@ export default async (req) => {
         ok: false,
         jobId,
         status: "error",
-        error: error.message || "生成失败",
+        error: error.message || "Generation failed.",
         updatedAt: new Date().toISOString()
       });
     }
   }
 };
-

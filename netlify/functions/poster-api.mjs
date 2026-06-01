@@ -17,19 +17,19 @@ export async function parseJson(req) {
   try {
     return await req.json();
   } catch {
-    throw new Error("JSON 解析失败");
+    throw new Error("Failed to parse JSON request body.");
   }
 }
 
 function normalizeImageResult(provider, responseJson) {
   const first = responseJson && Array.isArray(responseJson.data) ? responseJson.data[0] : null;
   if (!first) {
-    throw new Error(`${provider} 未返回图片数据`);
+    throw new Error(`${provider} did not return image data.`);
   }
   if (first.b64_json) return { imageBase64: first.b64_json };
   if (first.url) return { imageUrl: first.url };
   if (first.image_url) return { imageUrl: first.image_url };
-  throw new Error(`${provider} 返回格式中没有 b64_json、url 或 image_url`);
+  throw new Error(`${provider} response does not include b64_json, url, or image_url.`);
 }
 
 function mergePrompt(prompt, negativePrompt) {
@@ -55,14 +55,14 @@ async function readUpstreamJson(response, provider) {
     return text ? JSON.parse(text) : {};
   } catch {
     const preview = text.slice(0, 300).replace(/\s+/g, " ");
-    throw new Error(`${provider} 返回了非 JSON 内容：${preview}`);
+    throw new Error(`${provider} returned non-JSON content: ${preview}`);
   }
 }
 
 async function callOpenAI(payload) {
   const apiKey = payload.apiKey || env("OPENAI_API_KEY");
   if (!apiKey) {
-    throw new Error("缺少 OpenAI API Key。请在页面模型设置中填写，或在 Netlify 环境变量中设置 OPENAI_API_KEY。");
+    throw new Error("Missing OpenAI API Key. Fill it in the page API settings or set OPENAI_API_KEY in Netlify environment variables.");
   }
 
   const body = {
@@ -85,7 +85,7 @@ async function callOpenAI(payload) {
   const json = await readUpstreamJson(response, "OpenAI");
   if (!response.ok) {
     const message = json.error && json.error.message ? json.error.message : JSON.stringify(json);
-    throw new Error(`OpenAI 生成失败：${message}`);
+    throw new Error(`OpenAI generation failed: ${message}`);
   }
 
   return {
@@ -98,12 +98,12 @@ async function callOpenAI(payload) {
 async function callDoubao(payload) {
   const apiKey = payload.apiKey || env("DOUBAO_API_KEY") || env("ARK_API_KEY") || env("VOLCENGINE_API_KEY");
   if (!apiKey) {
-    throw new Error("缺少豆包/火山方舟 API Key。请在页面模型设置中填写，或在 Netlify 环境变量中设置 DOUBAO_API_KEY/ARK_API_KEY。");
+    throw new Error("Missing Doubao/Volcengine API Key. Fill it in the page API settings or set DOUBAO_API_KEY/ARK_API_KEY in Netlify environment variables.");
   }
 
   const endpoint = payload.endpoint || env("DOUBAO_IMAGE_ENDPOINT") || "https://ark.cn-beijing.volces.com/api/v3/images/generations";
   if (endpoint.includes("/chat/completions")) {
-    throw new Error("当前豆包 endpoint 指向 /chat/completions，这是对话接口，不能返回图片。请改用 /api/v3/images/generations。");
+    throw new Error("The Doubao endpoint points to /chat/completions, which is not an image generation endpoint. Use /api/v3/images/generations.");
   }
 
   const model = payload.model && payload.model !== "__env__"
@@ -126,16 +126,16 @@ async function callDoubao(payload) {
     body: JSON.stringify(body)
   });
 
-  const json = await readUpstreamJson(response, "豆包");
+  const json = await readUpstreamJson(response, "Doubao");
   if (!response.ok) {
     const message = json.error && json.error.message ? json.error.message : JSON.stringify(json);
-    throw new Error(`豆包生成失败：${message}`);
+    throw new Error(`Doubao generation failed: ${message}`);
   }
 
   return {
     provider: "doubao",
     model: body.model,
-    ...normalizeImageResult("豆包", json)
+    ...normalizeImageResult("Doubao", json)
   };
 }
 
@@ -143,4 +143,3 @@ export async function generatePosterImage(payload) {
   const provider = payload.provider || "openai";
   return provider === "doubao" ? callDoubao(payload) : callOpenAI(payload);
 }
-

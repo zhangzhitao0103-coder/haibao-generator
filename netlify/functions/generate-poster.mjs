@@ -13,7 +13,7 @@ export default async (req) => {
   try {
     const payload = await parseJson(req);
     if (!payload.prompt || typeof payload.prompt !== "string") {
-      return jsonResponse(400, { ok: false, error: "缺少 prompt" });
+      return jsonResponse(400, { ok: false, error: "Missing prompt." });
     }
 
     const jobId = crypto.randomUUID();
@@ -38,13 +38,13 @@ export default async (req) => {
         ok: false,
         jobId,
         status: "error",
-        error: `后台生成任务启动失败：${text || trigger.status}`,
+        error: `Failed to start background generation job: ${text || trigger.status}`,
         createdAt,
         updatedAt: new Date().toISOString()
       });
       return jsonResponse(500, {
         ok: false,
-        error: "后台生成任务启动失败，请稍后重试。"
+        error: "Failed to start background generation job. Please retry later."
       });
     }
 
@@ -59,7 +59,7 @@ export default async (req) => {
   } catch (error) {
     return jsonResponse(500, {
       ok: false,
-      error: error.message || "生成任务创建失败"
+      error: error.message || "Failed to create generation job."
     });
   }
 };
@@ -67,4 +67,3 @@ export default async (req) => {
 export const config = {
   path: "/api/generate-poster"
 };
-
