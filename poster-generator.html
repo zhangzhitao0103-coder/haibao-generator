@@ -1919,6 +1919,10 @@
       return appUrl("/api/generate-poster");
     }
 
+    function statusApiUrl(jobId) {
+      return appUrl(`/api/poster-status?id=${encodeURIComponent(jobId)}`);
+    }
+
     function showGeneratedImage(src) {
       state.currentImageUrl = src;
       $("generatedImage").src = src;
@@ -1988,6 +1992,59 @@
       });
     }
 
+    function handleGeneratedResult(result, data) {
+      const src = imageSrcFromResult(result);
+      if (!src) throw new Error("接口未返回图片");
+      showGeneratedImage(src);
+      const historyUrl = result.savedPath || result.imageUrl || "";
+      if (historyUrl) {
+        saveHistoryItem({
+          imageUrl: historyUrl,
+          provider: result.provider,
+          model: result.model,
+          scene: data.scene,
+          createdAt: new Date().toLocaleString()
+        });
+      }
+      setStatus("生成完成。请检查图片中的时间、价格、名额等敏感信息是否与输入完全一致。");
+    }
+
+    async function readJsonResponse(response, fallbackMessage) {
+      const responseText = await response.text();
+      try {
+        return responseText ? JSON.parse(responseText) : {};
+      } catch {
+        const preview = responseText.slice(0, 120).replace(/\s+/g, " ");
+        const routeHint = window.location.protocol === "file:"
+          ? "当前是本地文件打开，请确认本地 Node 代理服务正在运行：http://127.0.0.1:8787/"
+          : "当前是线上站点，请确认 Netlify Function 已成功部署。";
+        throw new Error(`${fallbackMessage}。${routeHint} 返回片段：${preview}`);
+      }
+    }
+
+    async function waitForPosterJob(jobId, data) {
+      const maxAttempts = 80;
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        const response = await fetch(statusApiUrl(jobId), { cache: "no-store" });
+        const result = await readJsonResponse(response, "任务状态接口没有返回 JSON");
+        if (!response.ok || !result.ok) {
+          throw new Error(result.error || "查询生成任务失败");
+        }
+        if (result.status === "done") {
+          handleGeneratedResult(result, data);
+          return;
+        }
+        if (result.status === "error") {
+          throw new Error(result.error || "后台生成失败");
+        }
+        const statusText = result.status === "running" ? "模型正在生成" : "任务排队中";
+        setStatus(`${statusText}，已等待约 ${attempt * 3} 秒，请勿关闭页面。`, "loading");
+        setGeneratedEmpty(`${statusText}，已等待约 ${attempt * 3} 秒，请勿重复点击。`, true);
+        await new Promise((resolve) => window.setTimeout(resolve, 3000));
+      }
+      throw new Error("生成任务等待超时，请稍后在历史记录或重新生成。");
+    }
+
     async function generatePoster() {
       const data = getInputs();
       const config = activeConfig();
@@ -2019,35 +2076,17 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload)
         });
-        const responseText = await response.text();
-        let result;
-        try {
-          result = responseText ? JSON.parse(responseText) : {};
-        } catch {
-          const preview = responseText.slice(0, 120).replace(/\s+/g, " ");
-          const routeHint = window.location.protocol === "file:"
-            ? "当前是本地文件打开，请确认本地 Node 代理服务正在运行：http://127.0.0.1:8787/"
-            : "当前是线上站点，请确认 Netlify Function /api/generate-poster 已成功部署。";
-          throw new Error(`接口没有返回 JSON。${routeHint} 返回片段：${preview}`);
-        }
+        const result = await readJsonResponse(response, "接口没有返回 JSON");
         if (!response.ok || !result.ok) {
           const detail = result.detail ? `（详情：${result.detail}）` : "";
           throw new Error(`${result.error || "生成失败"}${detail}`);
         }
-        const src = imageSrcFromResult(result);
-        if (!src) throw new Error("接口未返回图片");
-        showGeneratedImage(src);
-        const historyUrl = result.savedPath || result.imageUrl || "";
-        if (historyUrl) {
-          saveHistoryItem({
-            imageUrl: historyUrl,
-            provider: result.provider,
-            model: result.model,
-            scene: data.scene,
-            createdAt: new Date().toLocaleString()
-          });
+        if (result.async && result.jobId) {
+          setStatus("生成任务已提交，后台正在处理。", "loading");
+          await waitForPosterJob(result.jobId, data);
+        } else {
+          handleGeneratedResult(result, data);
         }
-        setStatus("生成完成。请检查图片中的时间、价格、名额等敏感信息是否与输入完全一致。");
       } catch (error) {
         setStatus(error.message || "生成失败", "error");
         setGeneratedEmpty(`生成失败：${error.message || "请检查 API Key、网络或模型参数"}`);
