@@ -103,7 +103,7 @@
     .top-btn.icon-only { width: 38px; padding: 0; justify-content: center; }
 
     /* ---------- Shell / grid ---------- */
-    .shell { max-width: 1480px; margin: 0 auto; padding: 22px 30px; }
+    .shell { max-width: none; width: 100%; margin: 0 auto; padding: 22px clamp(24px, 3vw, 56px); }
     .grid {
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(0, 1.18fr);
@@ -752,9 +752,52 @@
       );
     }
 
-    function initPostHogAnalytics() {
+    // Only the official PostHog browser SDK loader is ever loaded. No other third-party scripts.
+    const POSTHOG_SDK_URL = "https://app.posthog.com/static/array.js";
+    let posthogSdkPromise = null;
+
+    function loadPostHogSdk() {
+      // Resolve immediately if the SDK is already present.
+      if (HAIBAO_ANALYTICS_GLOBAL.posthog && typeof HAIBAO_ANALYTICS_GLOBAL.posthog.init === "function") {
+        return Promise.resolve(true);
+      }
+      // Never load the SDK twice: reuse the in-flight / completed promise.
+      if (posthogSdkPromise) return posthogSdkPromise;
+      if (typeof document === "undefined") return Promise.resolve(false);
+      posthogSdkPromise = new Promise((resolve) => {
+        try {
+          const script = document.createElement("script");
+          script.src = POSTHOG_SDK_URL;
+          script.async = true;
+          script.crossOrigin = "anonymous";
+          script.onload = () => resolve(Boolean(HAIBAO_ANALYTICS_GLOBAL.posthog));
+          script.onerror = () => {
+            // Load failure must not break or block the page; only warn.
+            console.warn("PostHog SDK failed to load; analytics disabled, page unaffected.");
+            posthogSdkPromise = null;
+            resolve(false);
+          };
+          document.head.appendChild(script);
+        } catch (error) {
+          console.warn("PostHog SDK load error; analytics disabled, page unaffected.", error);
+          posthogSdkPromise = null;
+          resolve(false);
+        }
+      });
+      return posthogSdkPromise;
+    }
+
+    async function initPostHogAnalytics() {
       const config = HAIBAO_ANALYTICS_GLOBAL.HAIBAO_ANALYTICS_CONFIG || {};
-      if (config.enabled !== true || !config.posthogKey) return false;
+      if (config.enabled !== true) return false;
+      if (!config.posthogKey) {
+        console.warn("PostHog analytics is enabled but posthogKey is missing; skipping init.");
+        return false;
+      }
+      // Load the SDK on demand before init when it is not already available.
+      if (!HAIBAO_ANALYTICS_GLOBAL.posthog || typeof HAIBAO_ANALYTICS_GLOBAL.posthog.init !== "function") {
+        await loadPostHogSdk();
+      }
       if (!HAIBAO_ANALYTICS_GLOBAL.posthog || typeof HAIBAO_ANALYTICS_GLOBAL.posthog.init !== "function") {
         console.warn("PostHog analytics is enabled but SDK is not available.");
         return false;
@@ -805,9 +848,29 @@
       return sanitized;
     }
 
+    // Only these three manual product-usage events are ever allowed to be captured.
+    const ALLOWED_ANALYTICS_EVENTS = [
+      "haibao_console_page_view",
+      "haibao_prompt_generate_clicked",
+      "haibao_prompt_copy_clicked"
+    ];
+
     function trackAnalyticsEvent(eventName, properties) {
-      if (!isAnalyticsEnabled()) return false;
+      const config = HAIBAO_ANALYTICS_GLOBAL.HAIBAO_ANALYTICS_CONFIG || {};
+      // 1) Analytics not enabled -> silent no-op.
+      if (config.enabled !== true || config.provider !== "posthog" || !config.posthogKey) return false;
+      // 3) Only allow the 3 whitelisted event names.
+      if (!ALLOWED_ANALYTICS_EVENTS.includes(eventName)) {
+        console.warn("Blocked non-allowlisted analytics event:", eventName);
+        return false;
+      }
+      // 2) SDK unavailable -> warning, then return without breaking the page.
+      if (!HAIBAO_ANALYTICS_GLOBAL.posthog || typeof HAIBAO_ANALYTICS_GLOBAL.posthog.capture !== "function") {
+        console.warn("PostHog SDK is not available; analytics event skipped:", eventName);
+        return false;
+      }
       try {
+        // 4) Filter properties; never send final_prompt / copied text / raw user input.
         const sanitizedProperties = sanitizeAnalyticsProperties(properties || {});
         HAIBAO_ANALYTICS_GLOBAL.posthog.capture(eventName, sanitizedProperties);
         return true;
@@ -1884,15 +1947,17 @@ ${plan.negativePromptTerms.join("、")}`;
     setAdvancedMode(true);
     setProfile(DEFAULT_PROFILE);
     updateSelectionTags(getSalesInput(), null);
-    loadPostHogRuntimeConfig().then(() => {
-      initPostHogAnalytics();
+    // 1) load runtime config -> 2) init analytics (loads SDK first) -> 3) fire manual page_view on success only.
+    loadPostHogRuntimeConfig().then(async () => {
+      const analyticsReady = await initPostHogAnalytics();
+      if (!analyticsReady) return;
       trackAnalyticsEvent("haibao_console_page_view", {
         ...ANALYTICS_COMMON_PROPS,
         ...ANALYTICS_METRIC_LABELS.page_view,
-        app_stage: "stage11_8A",
+        app_stage: "stage11_8B",
         ui_mode: "static_ui_first",
         has_posthog_config: Boolean(HAIBAO_ANALYTICS_GLOBAL.HAIBAO_ANALYTICS_CONFIG),
-        version: "stage11.8A"
+        version: "stage11.8B"
       });
     });
 
