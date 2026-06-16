@@ -12,3 +12,4 @@ tmp/
 *.key
 *.pem
 *.zip
+_static_server.js
