@@ -1,7 +1,12 @@
 .env
+.env.local
+.env.production
 .netlify/
+.wrangler/
+.dev.vars
 node_modules/
 dist/
+posthog-config.js
 output/
 server.log
 server.err.log

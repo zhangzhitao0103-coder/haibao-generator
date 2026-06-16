@@ -706,7 +706,11 @@
       enabled: false,
       provider: "posthog",
       posthogKey: "",
-      apiHost: "https://us.i.posthog.com"
+      apiHost: "https://us.i.posthog.com",
+      posthogHost: "https://us.i.posthog.com",
+      autocapture: false,
+      capture_pageview: false,
+      disable_session_recording: true
     };
 
     HAIBAO_ANALYTICS_GLOBAL.HAIBAO_API_CONFIG = HAIBAO_ANALYTICS_GLOBAL.HAIBAO_API_CONFIG || {
@@ -757,7 +761,7 @@
       }
       try {
         HAIBAO_ANALYTICS_GLOBAL.posthog.init(config.posthogKey, {
-          api_host: config.apiHost,
+          api_host: config.posthogHost || config.apiHost,
           autocapture: false,
           capture_pageview: false,
           disable_session_recording: true,
@@ -768,6 +772,18 @@
         console.warn("PostHog analytics init failed.", error);
         return false;
       }
+    }
+
+    function loadPostHogRuntimeConfig() {
+      if (typeof document === "undefined") return Promise.resolve(false);
+      return new Promise((resolve) => {
+        const script = document.createElement("script");
+        script.src = "./posthog-config.js";
+        script.async = true;
+        script.onload = () => resolve(true);
+        script.onerror = () => resolve(false);
+        document.head.appendChild(script);
+      });
     }
 
     function sanitizeAnalyticsProperties(properties) {
@@ -810,6 +826,15 @@
       return "very_long";
     }
 
+    function getTextLengthBucket(text) {
+      const size = Array.from(String(text || "")).length;
+      if (size === 0) return "empty";
+      if (size <= 12) return "short";
+      if (size <= 40) return "medium";
+      if (size <= 100) return "long";
+      return "very_long";
+    }
+
     function getAnalyticsSafeInputSummary() {
       let salesInput = {};
       try {
@@ -827,10 +852,15 @@
         prompt_profile: salesInput.output_profile || salesInput.prompt_profile || "",
         element_count: Array.isArray(salesInput.element_preference) ? salesInput.element_preference.length : 0,
         detail_element_count: detailCount,
-        benefit_count: Array.isArray(salesInput.benefits) ? salesInput.benefits.length : 0,
+        benefits_count: Array.isArray(salesInput.benefits) ? salesInput.benefits.length : 0,
         has_activity_info: Boolean(salesInput.activity_info),
         has_time_info: Boolean(salesInput.time_info),
-        has_quota_info: Boolean(salesInput.quota_info)
+        has_quota_info: Boolean(salesInput.quota_info),
+        product_name_length_bucket: getTextLengthBucket(salesInput.product_name),
+        activity_info_length_bucket: getTextLengthBucket(salesInput.activity_info),
+        time_info_length_bucket: getTextLengthBucket(salesInput.time_info),
+        quota_info_length_bucket: getTextLengthBucket(salesInput.quota_info),
+        benefits_length_bucket: getTextLengthBucket((salesInput.benefits || []).join("\n"))
       };
     }
 
@@ -1531,7 +1561,7 @@ ${plan.negativePromptTerms.join("、")}`;
       return Boolean(config.enabled === true && config.endpoint);
     }
 
-    function generateStaticPromptResult(salesInput, source = "static") {
+    function generateStaticPromptResult(salesInput, source = "static_rule") {
       const result = mockGeneratePrompt(salesInput);
       result.salesInput = salesInput;
       result.generationSource = source;
@@ -1609,7 +1639,7 @@ ${plan.negativePromptTerms.join("、")}`;
           result = generateStaticPromptResult(salesInput, "static_fallback");
         }
       } else {
-        result = generateStaticPromptResult(salesInput, "static");
+        result = generateStaticPromptResult(salesInput, "static_rule");
       }
       updateInlineWarnings(result.validationResult, salesInput);
       renderResult(result);
@@ -1619,8 +1649,8 @@ ${plan.negativePromptTerms.join("、")}`;
         ...getAnalyticsSafeInputSummary(),
         validation_status: result.validationResult?.errors?.length ? "failed" : "pass",
         safety_status: result.safetySummary?.status_label || getCurrentSafetyStatus(),
-        generation_source: result.generationSource || "static",
-        prompt_length_bucket: getPromptLengthBucket((result.finalPrompt || "").length)
+        generation_source: result.generationSource || "static_rule",
+        generated_prompt_length_bucket: getPromptLengthBucket((result.finalPrompt || "").length)
       });
     }
 
@@ -1727,7 +1757,7 @@ ${plan.negativePromptTerms.join("、")}`;
           ...getAnalyticsSafeInputSummary(),
           copy_success: copySuccess,
           safety_status: getCurrentSafetyStatus(),
-          prompt_length_bucket: getPromptLengthBucket(finalPrompt.length)
+          generated_prompt_length_bucket: getPromptLengthBucket(finalPrompt.length)
         });
       }
     }
@@ -1854,14 +1884,16 @@ ${plan.negativePromptTerms.join("、")}`;
     setAdvancedMode(true);
     setProfile(DEFAULT_PROFILE);
     updateSelectionTags(getSalesInput(), null);
-    initPostHogAnalytics();
-    trackAnalyticsEvent("haibao_console_page_view", {
-      ...ANALYTICS_COMMON_PROPS,
-      ...ANALYTICS_METRIC_LABELS.page_view,
-      app_stage: "stage11_2A",
-      ui_mode: "static_ui_first",
-      has_posthog_config: Boolean(HAIBAO_ANALYTICS_GLOBAL.HAIBAO_ANALYTICS_CONFIG),
-      version: "stage11.2A"
+    loadPostHogRuntimeConfig().then(() => {
+      initPostHogAnalytics();
+      trackAnalyticsEvent("haibao_console_page_view", {
+        ...ANALYTICS_COMMON_PROPS,
+        ...ANALYTICS_METRIC_LABELS.page_view,
+        app_stage: "stage11_8A",
+        ui_mode: "static_ui_first",
+        has_posthog_config: Boolean(HAIBAO_ANALYTICS_GLOBAL.HAIBAO_ANALYTICS_CONFIG),
+        version: "stage11.8A"
+      });
     });
 
   </script>

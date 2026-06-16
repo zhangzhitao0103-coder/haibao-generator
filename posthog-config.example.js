@@ -4,8 +4,12 @@ window.HAIBAO_ANALYTICS_CONFIG = {
   enabled: false,
   provider: "posthog",
   posthogKey: "REPLACE_WITH_YOUR_POSTHOG_PROJECT_API_KEY",
-  apiHost: "https://us.i.posthog.com"
+  posthogHost: "https://us.i.posthog.com",
+  apiHost: "https://us.i.posthog.com",
+  autocapture: false,
+  capture_pageview: false,
+  disable_session_recording: true
 };
 
 // EU region example:
-// window.HAIBAO_ANALYTICS_CONFIG.apiHost = "https://eu.i.posthog.com";
+// window.HAIBAO_ANALYTICS_CONFIG.posthogHost = "https://eu.i.posthog.com";

@@ -1,50 +1,74 @@
 # 海报提示词生成器控制台
 
-这是销售端海报 Prompt Generator 的静态前端包，核心入口是 `sales-prompt-console.html`。默认运行在纯静态模式，不需要构建命令，不依赖 React/Vue/Next/Vite，也不需要线上 API 才能生成 Prompt。
+销售端海报 Prompt Generator 静态前端包，核心入口是 `sales-prompt-console.html`。页面默认使用静态规则生成 Prompt，不需要线上 API 才能使用。
+
+## 当前 Pages 地址
+
+- https://haibao-generator-b5n.pages.dev/sales-prompt-console
 
 ## 页面入口
 
-- 主入口：`sales-prompt-console.html`
+- 根路径入口：`index.html`
+- 主页面：`sales-prompt-console.html`
 - PostHog 示例配置：`posthog-config.example.js`
 
-## 静态模式
+## Cloudflare Pages 构建配置
 
-默认使用页面内已经验收的静态 JS 规则生成 Prompt。该模式可以直接双击 HTML 打开，也可以放到任意静态托管服务中打开。
+- Build command: `npm run build:pages`
+- Build output directory: `dist`
 
-## API 模式
-
-页面预留 `window.HAIBAO_API_CONFIG`：
-
-```js
-window.HAIBAO_API_CONFIG = {
-  enabled: false,
-  endpoint: "http://127.0.0.1:8787/api/compile-prompt",
-  fallbackToStatic: true,
-  timeoutMs: 8000
-};
-```
-
-`enabled` 默认关闭。只有人工改为 `true` 后，才会请求本地 API；请求失败时会回退到静态规则。
-
-本地 API 测试方式：
+也可以直接使用：
 
 ```powershell
-python poster_project/backend/local_api_server.py
+node scripts/build-pages.js
 ```
 
-## PostHog 配置
+## PostHog 生产环境变量
 
-PostHog 默认关闭。未来如需启用，只能手动配置公开项目 key，并保持：
+只在 Cloudflare Pages 后台配置，不写入 GitHub：
 
-- autocapture 关闭
-- pageview 自动采集关闭
-- session replay 关闭
-- 只允许 `haibao_console_page_view`、`haibao_prompt_generate_clicked`、`haibao_prompt_copy_clicked` 三个手动事件
+```text
+HAIBAO_POSTHOG_ENABLED=true
+HAIBAO_POSTHOG_KEY=PostHog Project API Key
+HAIBAO_POSTHOG_HOST=PostHog Host
+```
+
+未配置环境变量时，构建产物 `dist/posthog-config.js` 会保持 `enabled=false`，页面仍可正常生成和复制 Prompt。
 
 ## 隐私边界
 
-不得采集用户输入正文、生成后的完整 Prompt、复制文本、产品名原文、卖点原文、活动/时间/名额信息原文。当前埋点只记录业务场景、选项、数量、布尔状态、来源标签和长度桶。
+只允许上报 3 个手动事件：
 
-## 未来 Cloudflare Pages 人工设置
+- `haibao_console_page_view`
+- `haibao_prompt_generate_clicked`
+- `haibao_prompt_copy_clicked`
 
-未来可将本目录作为静态站点来源。构建命令留空或选择 none，入口页面为 `sales-prompt-console.html`。发布前必须先运行阶段 11.7 总审计，并人工确认没有真实 key、token 或用户隐私数据。
+禁止采集：
+
+- 用户输入正文
+- `final_prompt`
+- 复制文本
+- `product_name/benefits/activity_info/time_info/quota_info` 原文
+
+PostHog 必须保持：
+
+- `autocapture=false`
+- `capture_pageview=false`
+- `disable_session_recording=true`
+
+允许采集枚举值、布尔值、数量、长度分档、页面固定标识、版本标识和生成来源枚举。
+
+## API 模式
+
+`window.HAIBAO_API_CONFIG.enabled` 默认仍为 `false`，`fallbackToStatic=true`。当前 Pages 静态上线不启用 Worker，不请求 Python API。
+
+## 线上验证步骤
+
+1. 打开线上页面。
+2. 在 Console 检查 `window.HAIBAO_ANALYTICS_CONFIG.enabled`。
+3. 在 Network 搜索 `posthog` 或 `capture`。
+4. 刷新页面一次。
+5. 点击生成一次。
+6. 点击复制一次。
+7. 到 PostHog Events 查看 3 个事件。
+8. 事件出现后，再创建 Dashboard Insight 和 Funnel。

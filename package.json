@@ -2,6 +2,9 @@
   "name": "haibao-generator",
   "version": "1.0.0",
   "private": true,
+  "scripts": {
+    "build:pages": "node scripts/build-pages.js"
+  },
   "dependencies": {
     "@netlify/blobs": "^9.1.2"
   }

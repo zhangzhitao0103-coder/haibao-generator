@@ -1,37 +1,71 @@
-# 部署前说明
+# 部署与 PostHog 开启说明
 
-本文只用于未来人工发布准备，本阶段不执行任何线上操作。
+本文记录 Cloudflare Pages 静态部署和 PostHog 生产采集的安全开启方式。
 
-## Cloudflare Pages 建议
+## 已上线 Pages
 
-- 项目类型：静态站点
-- 构建命令：留空或 none
-- 输出目录：`github-haibao-generator`，或在仓库迁移后按实际根目录选择静态前端目录
-- 入口页面：`sales-prompt-console.html`
+- 页面地址：https://haibao-generator-b5n.pages.dev/sales-prompt-console
+- 当前形态：静态前端
+- Worker：未部署
+- API：默认关闭
+- PostHog：通过 Pages 环境变量控制，源码默认关闭
 
-## Worker 建议
+## Cloudflare Pages 配置
 
-- 方案：使用 `poster_project/backend/worker_adapter` 中的 Python Worker adapter 语义
-- 健康检查：`/api/health`
-- 编译接口：`/api/compile-prompt`
-- CORS：上线前人工收紧允许来源
+- Build command: `npm run build:pages`
+- Build output directory: `dist`
 
-## 环境变量占位
+构建脚本会复制以下文件到 `dist`：
 
-当前仓库不写真实 PostHog key、Cloudflare token、GitHub token 或账号配置。未来只允许在托管平台后台手动填写。
+- `index.html`
+- `sales-prompt-console.html`
+- `posthog-config.example.js`
+- `_headers`
+- `_redirects`
 
-## PostHog 手动激活
+并生成：
 
-未来如需激活，复制 `posthog-config.example.js` 的结构，填入平台后台提供的公开项目 key，并保持 autocapture、自动 pageview、session replay 全部关闭。
+- `dist/posthog-config.js`
 
-## 禁止项
+`dist` 是构建产物，不提交到 GitHub。
 
-- 禁止提交真实 key/token
-- 禁止采集用户输入正文
-- 禁止采集生成后的完整 Prompt
-- 禁止采集复制文本
-- 禁止把本项目改造成框架构建项目
+## 生产环境变量
 
-## 发布前检查
+在 Cloudflare Pages 后台添加：
 
-发布前必须重新运行阶段 11.7 总审计，确认静态模式可独立使用、API 默认关闭、PostHog 默认关闭、fallback 可用、报告无 error。
+```text
+HAIBAO_POSTHOG_ENABLED=true
+HAIBAO_POSTHOG_KEY=PostHog Project API Key
+HAIBAO_POSTHOG_HOST=PostHog Host
+```
+
+不要把真实 PostHog key 写进源码、README、部署文档或 model_review 报告。
+
+## PostHog 隐私边界
+
+只上报 3 个手动事件：
+
+- `haibao_console_page_view`
+- `haibao_prompt_generate_clicked`
+- `haibao_prompt_copy_clicked`
+
+禁止采集用户输入正文、`final_prompt`、复制文本、`product_name/benefits/activity_info/time_info/quota_info` 原文。
+
+必须关闭：
+
+- autocapture
+- session replay
+- 默认 pageview 自动采集
+
+只允许采集枚举、布尔、数量、长度分档和固定页面标识。
+
+## 上线验证
+
+1. 打开线上页面。
+2. Console 检查 `window.HAIBAO_ANALYTICS_CONFIG.enabled`。
+3. Network 搜索 `posthog` 或 `capture`。
+4. 刷新页面一次。
+5. 点击生成一次。
+6. 点击复制一次。
+7. 到 PostHog Events 查看 3 个事件。
+8. 事件稳定出现后，创建 Dashboard Insight 和 Funnel。
