@@ -1,0 +1,1871 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>海报提示词生成器</title>
+  <style>
+    :root {
+      --bg: #fff8ef;
+      --bg-2: #fdf1e2;
+      --panel: #ffffff;
+      --panel-soft: #fffaf3;
+      --ink: #2a2320;
+      --muted: #8a8178;
+      --line: #efe4d6;
+      --line-soft: #f3ece2;
+      --orange: #f59e0b;
+      --orange-2: #fb923c;
+      --orange-strong: #ea7a14;
+      --orange-dark: #b45309;
+      --orange-soft: #fff3e0;
+      --orange-soft-2: #fff7ec;
+      --blue: #2563eb;
+      --blue-dark: #1d4ed8;
+      --blue-soft: #eef4ff;
+      --green: #15803d;
+      --green-soft: #ecfdf3;
+      --amber: #b45309;
+      --amber-soft: #fffbeb;
+      --red: #b91c1c;
+      --red-soft: #fef2f2;
+      --shadow: 0 10px 30px rgba(180, 120, 40, .08);
+      --shadow-soft: 0 6px 18px rgba(180, 120, 40, .06);
+      --radius: 12px;
+      --radius-sm: 9px;
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(120% 80% at 8% -10%, rgba(251, 146, 60, .14), transparent 42%),
+        radial-gradient(120% 80% at 100% -6%, rgba(245, 158, 11, .16), transparent 40%),
+        linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
+      color: var(--ink);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    button, input, textarea, select { font: inherit; }
+    h1, h2, h3, p { margin: 0; }
+
+    .app { min-height: 100vh; padding-bottom: 34px; }
+
+    /* ---------- Topbar ---------- */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      min-height: 74px;
+      padding: 12px 30px;
+      background:
+        linear-gradient(110deg, rgba(255, 252, 246, .96) 0%, rgba(255, 246, 233, .95) 55%, rgba(255, 239, 220, .95) 100%);
+      border-bottom: 1px solid var(--line);
+      box-shadow: 0 6px 20px rgba(200, 140, 50, .05);
+      backdrop-filter: blur(8px);
+    }
+    .brand { display: flex; align-items: center; gap: 13px; min-width: 0; }
+    .brand-mark {
+      width: 42px; height: 42px; border-radius: 11px;
+      display: grid; place-items: center;
+      background: linear-gradient(135deg, var(--orange-2), var(--orange));
+      color: #fff; flex: 0 0 auto;
+      box-shadow: 0 10px 20px rgba(245, 158, 11, .28);
+    }
+    .brand-mark svg { width: 24px; height: 24px; }
+    .brand-text h1 { font-size: 20px; line-height: 1.2; font-weight: 800; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+    .brand-text h1 .skill-tag { font-size: 12px; font-weight: 700; color: var(--orange-strong); }
+    .brand-text .subtitle { margin-top: 3px; color: var(--muted); font-size: 12.5px; }
+    .topbar-right { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
+    .ready-pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 14px; border-radius: 999px;
+      background: #fff; color: var(--orange-dark);
+      border: 1px solid #f6dcb0; font-weight: 700; white-space: nowrap;
+      box-shadow: var(--shadow-soft);
+    }
+    .ready-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 4px rgba(21, 128, 61, .12); }
+    .top-btn {
+      display: inline-flex; align-items: center; gap: 7px;
+      height: 38px; padding: 0 14px; border-radius: 10px;
+      border: 1px solid var(--line); background: #fff; color: #5b5249;
+      font-weight: 700; cursor: pointer; white-space: nowrap;
+    }
+    .top-btn svg { width: 16px; height: 16px; }
+    .top-btn.icon-only { width: 38px; padding: 0; justify-content: center; }
+
+    /* ---------- Shell / grid ---------- */
+    .shell { max-width: 1480px; margin: 0 auto; padding: 22px 30px; }
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.18fr);
+      gap: 20px;
+      align-items: start;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px 22px 22px;
+    }
+    .card-head {
+      display: flex; align-items: center; gap: 11px;
+      padding-bottom: 14px; margin-bottom: 16px;
+      border-bottom: 1px solid var(--line-soft);
+    }
+    .card-head .head-icon {
+      width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; flex: 0 0 auto;
+      background: var(--orange-soft); color: var(--orange-strong);
+    }
+    .card-head .head-icon svg { width: 18px; height: 18px; }
+    .card-title { font-size: 16.5px; font-weight: 800; }
+    .card-head .head-sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+    /* ---------- Section labels ---------- */
+    .seclabel {
+      display: flex; align-items: center; gap: 9px;
+      margin: 18px 0 11px;
+    }
+    .seclabel .tag {
+      font-size: 12px; font-weight: 800; color: var(--blue-dark);
+      background: var(--blue-soft); border: 1px solid #dbe7ff;
+      padding: 3px 9px; border-radius: 7px; white-space: nowrap;
+    }
+    .seclabel .tag.orange { color: var(--orange-dark); background: var(--orange-soft); border-color: #f6dcb0; }
+    .seclabel .desc { color: var(--muted); font-size: 12px; }
+
+    /* ---------- Fields ---------- */
+    .field { display: grid; gap: 7px; margin-bottom: 14px; }
+    label { color: #4a423b; font-weight: 700; font-size: 13px; }
+    .required { color: var(--orange-strong); margin-left: 3px; }
+    .input-wrap { position: relative; }
+    input[type=text], textarea {
+      width: 100%; border: 1px solid var(--line); border-radius: var(--radius-sm);
+      background: #fffdfa; color: var(--ink); outline: none;
+      transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+    }
+    input[type=text] { height: 44px; padding: 0 13px; }
+    .input-wrap.has-icon input[type=text] { padding-right: 42px; }
+    .input-icon {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      width: 18px; height: 18px; color: var(--orange-strong); pointer-events: none;
+    }
+    textarea { min-height: 112px; padding: 11px 13px; resize: vertical; line-height: 1.6; }
+    input[type=text]:focus, textarea:focus {
+      border-color: var(--orange); background: #fff;
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, .15);
+    }
+    .field-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .hint { color: var(--muted); font-size: 12px; }
+    .char-count { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+    .inline-warning {
+      display: none; color: var(--amber); background: var(--amber-soft);
+      border: 1px solid #fde68a; border-radius: var(--radius-sm); padding: 7px 10px; font-size: 12px;
+    }
+    .inline-warning.show { display: block; }
+
+    /* ---------- Scene button group ---------- */
+    .scene-group { display: flex; flex-wrap: wrap; gap: 9px; }
+    .scene-btn {
+      position: relative; display: inline-flex; align-items: center; gap: 7px;
+      min-height: 40px; padding: 8px 16px 8px 14px; border-radius: 10px;
+      border: 1.5px solid var(--line); background: #fffdfa; color: #5b5249;
+      font-weight: 700; font-size: 13px; cursor: pointer;
+      transition: border-color .15s ease, background .15s ease, color .15s ease, box-shadow .15s ease;
+    }
+    .scene-btn:hover { border-color: #f1cf9a; background: #fff8ee; }
+    .scene-btn.selected {
+      border-color: var(--orange); background: var(--orange-soft);
+      color: var(--orange-dark); box-shadow: 0 4px 12px rgba(245, 158, 11, .14);
+      padding-right: 34px;
+    }
+    .scene-btn .scene-check {
+      display: none; position: absolute; right: 9px; top: 50%; transform: translateY(-50%);
+      width: 17px; height: 17px; border-radius: 50%; background: var(--orange); color: #fff;
+      align-items: center; justify-content: center;
+    }
+    .scene-btn .scene-check svg { width: 11px; height: 11px; }
+    .scene-btn.selected .scene-check { display: inline-flex; }
+
+    /* ---------- Option cards (style / layout) ---------- */
+    .opt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); gap: 11px; }
+    .opt-card {
+      position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px;
+      padding: 14px 8px 12px; border-radius: 11px; cursor: pointer; text-align: center;
+      border: 1.5px solid var(--line); background: #fffdfa; color: #5b5249;
+      transition: border-color .15s ease, background .15s ease, box-shadow .15s ease, transform .12s ease;
+    }
+    .opt-card:hover { border-color: #f1cf9a; background: #fff8ee; transform: translateY(-1px); }
+    .opt-card .opt-icon { width: 36px; height: 30px; display: grid; place-items: center; }
+    .opt-card .opt-icon svg { width: 30px; height: 26px; }
+    .opt-card .opt-name { font-size: 12.5px; font-weight: 700; line-height: 1.25; }
+    .opt-card.selected {
+      border-color: var(--orange); background: var(--orange-soft);
+      color: var(--orange-dark); box-shadow: 0 5px 14px rgba(245, 158, 11, .16);
+    }
+    .opt-card .opt-check {
+      display: none; position: absolute; right: 7px; top: 7px;
+      width: 17px; height: 17px; border-radius: 50%; background: var(--orange); color: #fff;
+      align-items: center; justify-content: center;
+    }
+    .opt-card .opt-check svg { width: 11px; height: 11px; }
+    .opt-card.selected .opt-check { display: inline-flex; }
+    /* color swatch previews */
+    .swatch { width: 36px; height: 26px; border-radius: 7px; overflow: hidden; display: flex; border: 1px solid rgba(0,0,0,.06); }
+    .swatch span { flex: 1; }
+
+    /* ---------- Advanced elements ---------- */
+    .adv-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+    .adv-head .adv-title { display: flex; align-items: center; gap: 9px; }
+    .switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+    .switch .switch-label { font-size: 12.5px; font-weight: 700; color: #5b5249; }
+    .switch-track {
+      width: 40px; height: 22px; border-radius: 999px; background: var(--orange);
+      position: relative; transition: background .15s ease;
+    }
+    .switch-track::after {
+      content: ""; position: absolute; top: 2px; left: 20px; width: 18px; height: 18px;
+      border-radius: 50%; background: #fff; transition: left .15s ease; box-shadow: 0 1px 3px rgba(0,0,0,.2);
+    }
+    .switch.off .switch-track { background: #d6cdc2; }
+    .switch.off .switch-track::after { left: 2px; }
+
+    .cat-row { display: flex; flex-wrap: wrap; gap: 9px; }
+    .cap {
+      display: inline-flex; align-items: center; gap: 6px;
+      min-height: 34px; padding: 6px 13px; border-radius: 999px; cursor: pointer;
+      border: 1.5px solid var(--line); background: #fffdfa; color: #5b5249;
+      font-weight: 700; font-size: 12.5px; line-height: 1;
+      transition: border-color .15s ease, background .15s ease, color .15s ease;
+    }
+    .cap:hover { border-color: #f1cf9a; background: #fff8ee; }
+    .cap input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .cap:has(input:checked) {
+      border-color: var(--orange); background: var(--orange-soft); color: var(--orange-dark);
+    }
+
+    .detail-groups { display: grid; gap: 10px; margin-top: 13px; }
+    .detail-groups.hidden { display: none; }
+    .detail-group { border: 1px solid var(--line); border-radius: 11px; background: var(--panel-soft); padding: 12px; }
+    .detail-group-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 9px; }
+    .detail-group-head > span:first-child { color: var(--orange-dark); font-weight: 800; font-size: 12.5px; }
+    .detail-group-note { color: var(--muted); font-size: 11.5px; font-weight: 500; }
+    .detail-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .detail-chip {
+      border: 1.5px solid var(--line); border-radius: 999px; background: #fff; color: #5b5249;
+      cursor: pointer; font-size: 12px; font-weight: 700; line-height: 1; min-height: 31px; padding: 7px 12px;
+      transition: background .15s ease, border-color .15s ease, color .15s ease;
+    }
+    .detail-chip:hover { border-color: #f1cf9a; background: #fff8ee; }
+    .detail-chip.selected { border-color: var(--orange); background: var(--orange-soft); color: var(--orange-dark); }
+    .detail-empty { color: var(--muted); font-size: 12px; padding: 2px 0; }
+
+    /* ---------- Ratio ---------- */
+    .ratio-row { display: flex; flex-wrap: wrap; gap: 9px; }
+    .ratio-btn {
+      position: relative; display: inline-flex; align-items: center; gap: 7px;
+      min-height: 38px; padding: 7px 15px; border-radius: 10px; cursor: pointer;
+      border: 1.5px solid var(--line); background: #fffdfa; color: #5b5249; font-weight: 700; font-size: 13px;
+      transition: border-color .15s ease, background .15s ease, color .15s ease;
+    }
+    .ratio-btn input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .ratio-btn:hover { border-color: #f1cf9a; background: #fff8ee; }
+    .ratio-btn:has(input:checked) { border-color: var(--orange); background: var(--orange-soft); color: var(--orange-dark); }
+    .ratio-help { display: grid; gap: 5px; margin-top: 10px; padding: 10px 12px; border-radius: var(--radius-sm); background: var(--panel-soft); border: 1px solid var(--line-soft); color: var(--muted); font-size: 12px; }
+
+    /* ---------- Result section ---------- */
+    .result-card {
+      margin-top: 20px; background: var(--panel); border: 1px solid var(--line);
+      border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden;
+    }
+    .result-head {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      padding: 16px 22px; border-bottom: 1px solid var(--line-soft);
+      background: linear-gradient(180deg, #fffdf9, #fff7ed);
+    }
+    .result-head .head-icon { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: var(--orange-soft); color: var(--orange-strong); flex: 0 0 auto; }
+    .result-head .head-icon svg { width: 18px; height: 18px; }
+    .result-head .spacer { flex: 1; }
+    .gen-time { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+    .gen-time svg { width: 15px; height: 15px; }
+
+    /* profile switcher */
+    .profile-switch { display: inline-flex; padding: 4px; gap: 4px; border-radius: 10px; background: #fdeedd; border: 1px solid #f3dcbb; }
+    .profile-opt {
+      border: 0; background: transparent; color: #7a6c5b; font-weight: 700; font-size: 12.5px;
+      padding: 6px 12px; border-radius: 7px; cursor: pointer; white-space: nowrap;
+    }
+    .profile-opt.active { background: #fff; color: var(--orange-dark); box-shadow: 0 2px 6px rgba(180,120,40,.14); }
+    .profile-note { width: 100%; color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+    .result-main { display: grid; grid-template-columns: minmax(0, 1fr) 224px; gap: 18px; padding: 18px 22px 20px; }
+
+    .summary-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .summary-tag {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 11px; border-radius: 999px; font-size: 12px; font-weight: 700;
+      color: var(--orange-dark); background: var(--orange-soft); border: 1px solid #f6dcb0;
+    }
+    .summary-tag b { color: #6b4a14; font-weight: 800; }
+    .summary-tag.muted { color: var(--muted); background: #f6f1ea; border-color: var(--line); }
+
+    .status-box { display: grid; gap: 9px; margin-bottom: 14px; padding: 13px 14px; border-radius: var(--radius-sm); border: 1px solid #dbeafe; background: var(--blue-soft); }
+    .status-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+    .status-label { display: inline-flex; align-items: center; min-height: 26px; padding: 3px 11px; border-radius: 999px; font-weight: 800; color: var(--blue-dark); background: #fff; border: 1px solid #bfdbfe; }
+    .status-box.ready { border-color: #bbf7d0; background: var(--green-soft); }
+    .status-box.ready .status-label { color: var(--green); border-color: #bbf7d0; }
+    .status-box.check { border-color: #fde68a; background: var(--amber-soft); }
+    .status-box.check .status-label { color: var(--amber); border-color: #fde68a; }
+    .status-box.modify, .status-box.blocked { border-color: #fecaca; background: var(--red-soft); }
+    .status-box.modify .status-label, .status-box.blocked .status-label { color: var(--red); border-color: #fecaca; }
+    .warning-list { display: grid; gap: 5px; margin: 0; padding-left: 18px; color: #6b5320; }
+
+    .plan-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel-soft); }
+    .plan-item { min-width: 0; padding: 9px 10px; border-radius: var(--radius-sm); background: #fff; border: 1px solid var(--line); }
+    .plan-label { color: var(--muted); font-size: 11.5px; margin-bottom: 3px; }
+    .plan-value { color: var(--ink); font-weight: 800; font-size: 12.5px; overflow-wrap: anywhere; }
+
+    #final_prompt {
+      width: 100%; min-height: 420px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+      background: #fffdfa; color: var(--ink); padding: 14px 15px; outline: none; resize: vertical;
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", Arial, sans-serif;
+      line-height: 1.7; font-size: 13px;
+    }
+    #final_prompt:focus { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(245, 158, 11, .12); }
+    .copy-message { color: var(--green); font-weight: 700; min-height: 20px; margin-top: 8px; font-size: 12.5px; }
+
+    details { margin-top: 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--panel-soft); overflow: hidden; }
+    summary { cursor: pointer; padding: 11px 13px; font-weight: 800; color: #4a423b; font-size: 12.5px; }
+    .negative-text { padding: 0 13px 13px; color: var(--muted); font-size: 12px; }
+
+    /* right action column */
+    .result-actions { display: flex; flex-direction: column; gap: 11px; align-self: start; position: sticky; top: 92px; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      border: 0; border-radius: 11px; min-height: 46px; padding: 0 16px; width: 100%;
+      font-weight: 800; font-size: 14px; cursor: pointer;
+      transition: transform .12s ease, box-shadow .15s ease, background .15s ease, opacity .15s ease;
+    }
+    .btn svg { width: 17px; height: 17px; }
+    .btn:active { transform: translateY(1px); }
+    .btn-primary { background: linear-gradient(135deg, var(--orange-2), var(--orange-strong)); color: #fff; box-shadow: 0 10px 22px rgba(245, 158, 11, .28); }
+    .btn-primary:hover { background: linear-gradient(135deg, var(--orange-strong), var(--orange-dark)); }
+    .btn-outline { background: #fff; color: #5b5249; border: 1.5px solid var(--line); }
+    .btn-outline:hover { border-color: #f1cf9a; background: #fff8ee; }
+    .btn[disabled] { cursor: not-allowed; opacity: .5; box-shadow: none; }
+    .btn-link { background: transparent; border: 0; color: var(--muted); font-weight: 700; font-size: 12.5px; cursor: pointer; min-height: 30px; }
+    .action-hint { color: var(--muted); font-size: 11.5px; line-height: 1.5; margin-top: 2px; }
+
+    @media (max-width: 1080px) {
+      .grid { grid-template-columns: 1fr; }
+      .result-main { grid-template-columns: 1fr; }
+      .result-actions { position: static; flex-direction: row; flex-wrap: wrap; }
+      .result-actions .btn { width: auto; flex: 1 1 160px; }
+    }
+    @media (max-width: 640px) {
+      .topbar { flex-direction: column; align-items: flex-start; padding: 12px 16px; }
+      .shell { padding: 16px; }
+      .plan-summary { grid-template-columns: 1fr; }
+      .card { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21l3-1 11-11a2.1 2.1 0 0 0-3-3L3 17l-1 4z"/><path d="M14 6l3 3"/></svg>
+        </div>
+        <div class="brand-text">
+          <h1>海报提示词生成器 <span class="skill-tag">截杀海报 skill</span></h1>
+          <p class="subtitle">一键生成可复制给豆包 / 即梦 / 可灵 / image2 的高转化中文海报提示词</p>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <span class="ready-pill"><span class="ready-dot"></span>智能配置 · 已就绪</span>
+        <button class="top-btn" type="button" id="guideBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          使用指南
+        </button>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section class="grid">
+        <!-- ============ LEFT: Business & product ============ -->
+        <div class="card">
+          <div class="card-head">
+            <span class="head-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h6"/></svg></span>
+            <div>
+              <div class="card-title">第一栏：业务与产品信息</div>
+              <div class="head-sub">先把销售场景和必要事实填准</div>
+            </div>
+          </div>
+
+          <div class="seclabel">
+            <span class="tag orange">A. 业务场景</span>
+            <span class="desc">选择当前销售动作</span>
+          </div>
+          <div class="scene-group" id="sceneGroup">
+            <button type="button" class="scene-btn" data-scene="开售">开售<span class="scene-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span></button>
+            <button type="button" class="scene-btn" data-scene="涨价">涨价<span class="scene-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span></button>
+            <button type="button" class="scene-btn" data-scene="封班">封班<span class="scene-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span></button>
+            <button type="button" class="scene-btn" data-scene="开课/服务开启">开课/服务开启<span class="scene-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span></button>
+            <button type="button" class="scene-btn" data-scene="补录返场">补录返场<span class="scene-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span></button>
+            <button type="button" class="scene-btn" data-scene="倒计时">倒计时<span class="scene-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span></button>
+            <button type="button" class="scene-btn" data-scene="名额截杀/满班率">名额截杀/满班率<span class="scene-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span></button>
+          </div>
+          <input type="hidden" id="business_scene" name="business_scene" value="">
+          <div id="businessSceneWarning" class="inline-warning" style="margin-top:10px;">请选择业务场景。</div>
+
+          <div class="seclabel">
+            <span class="tag orange">B. 产品信息</span>
+            <span class="desc">填写真实、可兑现的信息</span>
+          </div>
+
+          <div class="field">
+            <label for="product_name">产品名称 / 班型名称<span class="required">*</span></label>
+            <input id="product_name" name="product_name" type="text" placeholder="例如：高三数学冲刺班">
+            <div id="productNameWarning" class="inline-warning">请填写产品名称 / 班型名称。</div>
+          </div>
+
+          <div class="field">
+            <label for="activity_info">活动信息</label>
+            <input id="activity_info" name="activity_info" type="text" placeholder="例如：早鸟立减、618活动、限时补录">
+          </div>
+
+          <div class="field">
+            <label for="time_info">开课时间 / 涨价时间 / 封班时间 / 活动截止时间</label>
+            <div class="input-wrap has-icon">
+              <input id="time_info" name="time_info" type="text" placeholder="例如：6月23日24:00截止、7月1日19:00开课">
+              <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            </div>
+            <div id="timeInfoWarning" class="inline-warning">当前业务场景需要填写时间信息，否则海报提示词可能不准确。</div>
+          </div>
+
+          <div class="field">
+            <label for="quota_info">名额 / 进度 / 满班率</label>
+            <input id="quota_info" name="quota_info" type="text" placeholder="例如：仅剩20名、已报80%、满班预警">
+            <div id="quotaInfoWarning" class="inline-warning">名额截杀/满班率场景需要填写名额、满班率或进度信息。</div>
+          </div>
+
+          <div class="field">
+            <label for="benefits">班型优势要点（销售自己想呈现的课程卖点）</label>
+            <textarea id="benefits" name="benefits" placeholder="例如：名师授课、体系完整、提分效果显著、配套服务完善…（每行一条，条数与字数不限）"></textarea>
+            <div class="field-foot">
+              <span class="hint">每行一条卖点，条数与字数不限，全部进入提示词。</span>
+              <span class="char-count">已输入 <span id="benefitsCount">0</span> 字</span>
+            </div>
+            <div id="materialWarning" class="inline-warning">请不要要求生图模型生成证书、截图、真人照片等真实背书素材。如需使用真实素材，需要由用户自行提供。</div>
+          </div>
+        </div>
+
+        <!-- ============ RIGHT: Visual config center ============ -->
+        <div class="card">
+          <div class="card-head">
+            <span class="head-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="6.5" cy="11.5" r="2.5"/><circle cx="17" cy="15" r="2.5"/><path d="M12 22a10 10 0 1 1 10-10c0 1.7-1.3 3-3 3h-2a2 2 0 0 0-1.4 3.4A2 2 0 0 1 12 22z"/></svg></span>
+            <div>
+              <div class="card-title">视觉配置中心</div>
+              <div class="head-sub">选择色系、布局与高级元素，决定画面高级感</div>
+            </div>
+          </div>
+
+          <!-- 第二栏：视觉色系 -->
+          <div class="seclabel">
+            <span class="tag">第二栏：视觉色系</span>
+            <span class="desc">选择适合的色系，影响海报整体情绪与转化氛围</span>
+          </div>
+          <input type="hidden" id="style_preference" name="style_preference" value="自动推荐">
+          <div class="opt-grid" id="styleGroup">
+            <div class="opt-card selected" data-style="自动推荐">
+              <span class="opt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v4M3 5h4M6 17v4M4 19h4"/><path d="M13 3l3.5 8.5L25 15l-8.5 3.5L13 27"/><path d="M13 3l3.5 8.5L21 12l-4.5 1.5L13 22"/></svg></span>
+              <span class="opt-name">自动推荐</span>
+              <span class="opt-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
+            </div>
+            <div class="opt-card" data-style="红金成交感">
+              <span class="swatch"><span style="background:#c81e1e"></span><span style="background:#e3a008"></span></span>
+              <span class="opt-name">红金成交感</span>
+              <span class="opt-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
+            </div>
+            <div class="opt-card" data-style="黑金高端压迫感">
+              <span class="swatch"><span style="background:#1f2937"></span><span style="background:#d4a017"></span></span>
+              <span class="opt-name">黑金高端压迫感</span>
+              <span class="opt-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
+            </div>
+            <div class="opt-card" data-style="橙黄福利感">
+              <span class="swatch"><span style="background:#f97316"></span><span style="background:#fcd34d"></span></span>
+              <span class="opt-name">橙黄福利感</span>
+              <span class="opt-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
+            </div>
+            <div class="opt-card" data-style="蓝橙专业服务感">
+              <span class="swatch"><span style="background:#2563eb"></span><span style="background:#f97316"></span></span>
+              <span class="opt-name">蓝橙专业服务感</span>
+              <span class="opt-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
+            </div>
+            <div class="opt-card" data-style="蓝白科技清爽感">
+              <span class="swatch"><span style="background:#3b82f6"></span><span style="background:#eff6ff"></span></span>
+              <span class="opt-name">蓝白科技清爽感</span>
+              <span class="opt-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
+            </div>
+            <div class="opt-card" data-style="红橙警示行动感">
+              <span class="swatch"><span style="background:#dc2626"></span><span style="background:#f97316"></span></span>
+              <span class="opt-name">红橙警示行动感</span>
+              <span class="opt-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
+            </div>
+          </div>
+
+          <!-- 第三栏：布局结构 -->
+          <div class="seclabel">
+            <span class="tag">第三栏：布局结构</span>
+            <span class="desc">选择版式结构，决定信息层级与视觉动线</span>
+          </div>
+          <input type="hidden" id="layout_preference" name="layout_preference" value="自动推荐">
+          <div class="opt-grid" id="layoutGroup">
+            <div class="opt-card selected" data-layout="自动推荐">
+              <span class="opt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v4M3 5h4M6 17v4M4 19h4"/><path d="M13 3l3.5 8.5L25 15l-8.5 3.5L13 27"/><path d="M13 3l3.5 8.5L21 12l-4.5 1.5L13 22"/></svg></span>
+              <span class="opt-name">自动推荐</span>
+              <span class="opt-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
+            </div>
+            <div class="opt-card" data-layout="中轴聚焦式">
+              <span class="opt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18"/><circle cx="12" cy="12" r="3.5"/><path d="M6 8h2M16 8h2M6 16h2M16 16h2"/></svg></span>
+              <span class="opt-name">中轴聚焦式</span>
+              <span class="opt-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
+            </div>
+            <div class="opt-card" data-layout="上下分层式">
+              <span class="opt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="16" width="18" height="4" rx="1"/></svg></span>
+              <span class="opt-name">上下分层式</span>
+              <span class="opt-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
+            </div>
+            <div class="opt-card" data-layout="卡片矩阵式">
+              <span class="opt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/></svg></span>
+              <span class="opt-name">卡片矩阵式</span>
+              <span class="opt-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
+            </div>
+            <div class="opt-card" data-layout="左右对比式">
+              <span class="opt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="8" height="16" rx="1"/><rect x="13" y="4" width="8" height="16" rx="1"/></svg></span>
+              <span class="opt-name">左右对比式</span>
+              <span class="opt-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
+            </div>
+            <div class="opt-card" data-layout="公告通知式">
+              <span class="opt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l15-6v14L3 13z"/><path d="M18 8a3 3 0 0 1 0 6"/><path d="M6 13v4a2 2 0 0 0 2 2h1"/></svg></span>
+              <span class="opt-name">公告通知式</span>
+              <span class="opt-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
+            </div>
+            <div class="opt-card" data-layout="超大数字倒计时式">
+              <span class="opt-icon" style="font-weight:900;font-size:18px;color:var(--orange-strong);">24</span>
+              <span class="opt-name">超大数字倒计时式</span>
+              <span class="opt-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
+            </div>
+            <div class="opt-card" data-layout="权益堆叠式">
+              <span class="opt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="13" width="14" height="6" rx="1"/><rect x="7" y="8" width="10" height="5" rx="1"/><rect x="9" y="4" width="6" height="4" rx="1"/></svg></span>
+              <span class="opt-name">权益堆叠式</span>
+              <span class="opt-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
+            </div>
+            <div class="opt-card" data-layout="流程路径式">
+              <span class="opt-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="6" r="2.2"/><circle cx="5" cy="18" r="2.2"/><circle cx="19" cy="12" r="2.2"/><path d="M7 6h6a3 3 0 0 1 3 3v1M7 18h6a3 3 0 0 0 3-3v-1"/></svg></span>
+              <span class="opt-name">流程路径式</span>
+              <span class="opt-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
+            </div>
+          </div>
+
+          <!-- 第四栏：高级元素 -->
+          <div class="adv-head" style="margin-top:18px;">
+            <div class="adv-title">
+              <span class="tag" style="font-size:12px;font-weight:800;color:var(--blue-dark);background:var(--blue-soft);border:1px solid #dbe7ff;padding:3px 9px;border-radius:7px;">第四栏：高级元素</span>
+              <span class="desc" style="color:var(--muted);font-size:12px;">选择关键视觉元素，增强刺激感与转化力</span>
+            </div>
+            <div class="switch" id="advModeSwitch" role="switch" aria-checked="true" tabindex="0">
+              <span class="switch-label">高级模式</span>
+              <span class="switch-track"></span>
+            </div>
+          </div>
+
+          <div class="cat-row" id="element_preference">
+            <label class="cap"><input type="checkbox" name="element_preference" value="自动推荐" checked>自动推荐</label>
+            <label class="cap"><input type="checkbox" name="element_preference" value="时间紧迫类">时间紧迫类</label>
+            <label class="cap"><input type="checkbox" name="element_preference" value="成交转化类">成交转化类</label>
+            <label class="cap"><input type="checkbox" name="element_preference" value="福利权益类">福利权益类</label>
+            <label class="cap"><input type="checkbox" name="element_preference" value="服务专业类">服务专业类</label>
+            <label class="cap"><input type="checkbox" name="element_preference" value="信任背书类">信任背书类</label>
+            <label class="cap"><input type="checkbox" name="element_preference" value="质感氛围类">质感氛围类</label>
+          </div>
+          <div class="hint" style="margin-top:10px;">可多选高级元素与具体元素，数量不限，选多了也能正常生成提示词。</div>
+          <div id="detailElementGroups" class="detail-groups" aria-live="polite"></div>
+
+          <!-- 生图比例 -->
+          <div class="seclabel">
+            <span class="tag orange">生图比例</span>
+            <span class="desc">选择海报投放渠道对应的画幅</span>
+          </div>
+          <div class="ratio-row" id="image_ratio">
+            <label class="ratio-btn"><input type="radio" name="image_ratio" value="9:16" checked>9:16 竖版</label>
+            <label class="ratio-btn"><input type="radio" name="image_ratio" value="16:9">16:9 横版</label>
+            <label class="ratio-btn"><input type="radio" name="image_ratio" value="1:1">1:1 方版</label>
+          </div>
+          <div class="ratio-help">
+            <span>9:16：适合朋友圈、销售私聊、社群转发</span>
+            <span>16:9：适合社群横图、直播封面、视频封面</span>
+            <span>1:1：适合社群卡片、朋友圈九宫格</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ BOTTOM: result ============ -->
+      <section class="result-card">
+        <div class="result-head">
+          <span class="head-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/></svg></span>
+          <div>
+            <div class="card-title">生成结果 / 海报方案</div>
+            <div class="head-sub">输出内容可直接作为中文生图模型提示词使用</div>
+          </div>
+          <span class="spacer"></span>
+          <div class="profile-switch" id="profileSwitch" role="tablist" aria-label="输出版本">
+            <button type="button" class="profile-opt active" data-profile="balanced_design">通用设计版</button>
+            <button type="button" class="profile-opt" data-profile="doubao_text_safe">豆包稳字版</button>
+            <button type="button" class="profile-opt" data-profile="image2_rich_design">image2丰富版</button>
+          </div>
+          <span class="gen-time"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span id="genTime">尚未生成</span></span>
+          <div class="profile-note" id="profileNote">输出版本：通用设计版 / balanced_design —— 保留设计感，兼顾文字可读性（默认）。</div>
+        </div>
+
+        <div class="result-main">
+          <div class="result-content">
+            <div class="summary-tags" id="selectionSummary">
+              <span class="summary-tag muted">业务场景：<b>待选择</b></span>
+              <span class="summary-tag muted">色系：<b>自动推荐</b></span>
+              <span class="summary-tag muted">布局：<b>自动推荐</b></span>
+              <span class="summary-tag muted">元素：<b>自动推荐</b></span>
+            </div>
+
+            <div id="safetyStatus" class="status-box blocked">
+              <div class="status-row">
+                <span id="statusLabel" class="status-label">已阻断</span>
+                <span class="hint">安全校验状态</span>
+              </div>
+              <p id="summaryMessage">请先补全必要信息，再生成可复制提示词。</p>
+              <ul id="visibleWarnings" class="warning-list"></ul>
+            </div>
+
+            <div class="plan-summary" id="visualPlanSummary">
+              <div class="plan-item"><div class="plan-label">视觉色系</div><div class="plan-value" id="summaryStyle">待生成</div></div>
+              <div class="plan-item"><div class="plan-label">布局结构</div><div class="plan-value" id="summaryLayout">待生成</div></div>
+              <div class="plan-item"><div class="plan-label">高级元素</div><div class="plan-value" id="summaryElements">待生成</div></div>
+              <div class="plan-item"><div class="plan-label">具体元素</div><div class="plan-value" id="summaryDetailElements">待生成</div></div>
+              <div class="plan-item"><div class="plan-label">文字稳定策略</div><div class="plan-value" id="summaryTextStability">待生成</div></div>
+              <div class="plan-item"><div class="plan-label">生成模式</div><div class="plan-value" id="summaryMode">静态预览，来自既有规则快照，未接入真实策略中台</div></div>
+            </div>
+
+            <textarea id="final_prompt" readonly placeholder="生成后，这里会显示可复制的中文海报提示词。"></textarea>
+            <div id="copyMessage" class="copy-message"></div>
+
+            <details>
+              <summary>负向提示词</summary>
+              <div id="negativePromptText" class="negative-text">乱码、伪文字、错别字、重复字、密集小字、英文乱码、水印、二维码、虚构电话、虚构地址、聊天截图、支付截图、证书、奖状、老师照片、学员照片、真实头像、成绩单、录取通知书、过度装饰、画面拥挤、元素堆砌、低清晰度、文字变形</div>
+            </details>
+          </div>
+
+          <div class="result-actions">
+            <button class="btn btn-primary" id="generateBtn" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h7l-1 8 10-12h-7z"/></svg>
+              一键生成提示词
+            </button>
+            <button class="btn btn-outline" id="copyBtn" type="button" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              复制结果
+            </button>
+            <button class="btn btn-outline" id="resetBtn" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+              重置
+            </button>
+            <button class="btn-link" id="clearResultBtn" type="button">清空结果</button>
+            <p class="action-hint">提示：结果可直接用于设计工具或AI绘图。</p>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+
+    // PostHog analytics is disabled by default. Configure window.HAIBAO_ANALYTICS_CONFIG to enable.
+    // Privacy rule: only product usage events are tracked; user input text and final prompt text are never captured.
+    const HAIBAO_ANALYTICS_GLOBAL = typeof window !== "undefined" ? window : globalThis;
+    HAIBAO_ANALYTICS_GLOBAL.HAIBAO_ANALYTICS_CONFIG = HAIBAO_ANALYTICS_GLOBAL.HAIBAO_ANALYTICS_CONFIG || {
+      enabled: false,
+      provider: "posthog",
+      posthogKey: "",
+      apiHost: "https://us.i.posthog.com"
+    };
+
+    HAIBAO_ANALYTICS_GLOBAL.HAIBAO_API_CONFIG = HAIBAO_ANALYTICS_GLOBAL.HAIBAO_API_CONFIG || {
+      enabled: false,
+      endpoint: "http://127.0.0.1:8787/api/compile-prompt",
+      fallbackToStatic: true,
+      timeoutMs: 8000
+    };
+
+    const ANALYTICS_COMMON_PROPS = {
+      app_name: "海报提示词生成器",
+      feature_name: "销售端提示词控制台",
+      product_area: "poster_prompt_console",
+      page_name: "sales_prompt_console"
+    };
+
+    const ANALYTICS_METRIC_LABELS = {
+      page_view: {
+        metric_name: "页面浏览量",
+        business_metric_label: "海报生成器-页面浏览量"
+      },
+      generate_click: {
+        metric_name: "一键生成提示词点击量",
+        business_metric_label: "海报生成器-一键生成提示词点击量"
+      },
+      copy_click: {
+        metric_name: "复制结果点击量",
+        business_metric_label: "海报生成器-复制结果点击量"
+      }
+    };
+
+    function isAnalyticsEnabled() {
+      const config = HAIBAO_ANALYTICS_GLOBAL.HAIBAO_ANALYTICS_CONFIG || {};
+      return Boolean(
+        config.enabled === true &&
+        config.provider === "posthog" &&
+        config.posthogKey &&
+        HAIBAO_ANALYTICS_GLOBAL.posthog
+      );
+    }
+
+    function initPostHogAnalytics() {
+      const config = HAIBAO_ANALYTICS_GLOBAL.HAIBAO_ANALYTICS_CONFIG || {};
+      if (config.enabled !== true || !config.posthogKey) return false;
+      if (!HAIBAO_ANALYTICS_GLOBAL.posthog || typeof HAIBAO_ANALYTICS_GLOBAL.posthog.init !== "function") {
+        console.warn("PostHog analytics is enabled but SDK is not available.");
+        return false;
+      }
+      try {
+        HAIBAO_ANALYTICS_GLOBAL.posthog.init(config.posthogKey, {
+          api_host: config.apiHost,
+          autocapture: false,
+          capture_pageview: false,
+          disable_session_recording: true,
+          persistence: "localStorage+cookie"
+        });
+        return true;
+      } catch (error) {
+        console.warn("PostHog analytics init failed.", error);
+        return false;
+      }
+    }
+
+    function sanitizeAnalyticsProperties(properties) {
+      const blockedExactKeys = [
+        "product_name", "productName", "benefits", "benefit_text", "activity_info",
+        "time_info", "quota_info", "final_prompt", "prompt", "copy_text", "copied_text",
+        "target_" + "user", "conversion_" + "goal", "source_" + "trace", "sensitive_" + "guard_result",
+        "raw_" + "technical_warnings"
+      ];
+      const blockedSubstrings = ["phone", "wechat", "student", "parent", "teacher_name", "address"];
+      const sanitized = {};
+      Object.entries(properties || {}).forEach(([key, value]) => {
+        const normalizedKey = String(key);
+        if (blockedExactKeys.some((blocked) => blocked.toLowerCase() === normalizedKey.toLowerCase())) return;
+        if (blockedSubstrings.some((blocked) => normalizedKey.toLowerCase().includes(blocked))) return;
+        if (typeof value === "string" && value.length > 120) return;
+        sanitized[key] = value;
+      });
+      return sanitized;
+    }
+
+    function trackAnalyticsEvent(eventName, properties) {
+      if (!isAnalyticsEnabled()) return false;
+      try {
+        const sanitizedProperties = sanitizeAnalyticsProperties(properties || {});
+        HAIBAO_ANALYTICS_GLOBAL.posthog.capture(eventName, sanitizedProperties);
+        return true;
+      } catch (error) {
+        console.warn("PostHog analytics capture failed.", error);
+        return false;
+      }
+    }
+
+    function getPromptLengthBucket(length) {
+      const size = Number(length) || 0;
+      if (size === 0) return "empty";
+      if (size <= 1500) return "short";
+      if (size <= 3500) return "medium";
+      if (size <= 6500) return "long";
+      return "very_long";
+    }
+
+    function getAnalyticsSafeInputSummary() {
+      let salesInput = {};
+      try {
+        salesInput = typeof getSalesInput === "function" ? getSalesInput() : {};
+      } catch (error) {
+        salesInput = {};
+      }
+      const detailPreference = salesInput.detail_element_preference || {};
+      const detailCount = Object.values(detailPreference).reduce((sum, items) => sum + (Array.isArray(items) ? items.length : 0), 0);
+      return {
+        business_scene: salesInput.business_scene || "",
+        style_preference: salesInput.style_preference || "",
+        layout_preference: salesInput.layout_preference || "",
+        image_ratio: salesInput.image_ratio || "",
+        prompt_profile: salesInput.output_profile || salesInput.prompt_profile || "",
+        element_count: Array.isArray(salesInput.element_preference) ? salesInput.element_preference.length : 0,
+        detail_element_count: detailCount,
+        benefit_count: Array.isArray(salesInput.benefits) ? salesInput.benefits.length : 0,
+        has_activity_info: Boolean(salesInput.activity_info),
+        has_time_info: Boolean(salesInput.time_info),
+        has_quota_info: Boolean(salesInput.quota_info)
+      };
+    }
+
+    function getCurrentSafetyStatus() {
+      const statusNode = document.querySelector("#statusLabel");
+      return statusNode ? statusNode.textContent.trim() : "";
+    }
+
+    const PROMPT_FRAGMENT_BUNDLE = {"business_scene_fragments":{"开售":{"scene_goal":"把课程、班型或权益开放包装成一个值得立刻了解的新机会，先建立产品价值感，再承接报名咨询动作。","user_mindset":"希望先看清课程能解决什么问题，同时担心晚规划会错过更适合的学习节奏和权益。","copy_direction":"围绕正式开放、提前规划、权益清晰、现在了解展开，不写无依据截止与名额。","cta_direction":"立即报名、扫码查看提升方案、联系学业诊断师、锁定开售权益；立即报名 / 扫码查看提升方案 / 联系学业诊断师","risk_notes":["未提供日期、价格、优惠、名额时，只能使用开放、开启、了解、咨询等模糊表达。","最后通牒式催单","编造截止时间","编造剩余名额","把开售写成涨价或封班","黑红最后通牒风不适合作为普通开售主风格，容易把新品上线误导成封班截杀。","过度清淡的课程说明页不适合开售，会削弱“报名窗口已打开”的行动感。","不要要求生图模型生成荣誉证书、奖状、成绩单、录取通知书等真实背书素材。","不要要求生图模型生成学员反馈截图、微信聊天截图、支付截图、报名截图等截图类素材。","不要要求生图模型生成老师人物照片、学员人物照片、真实头像或真人肖像。"]},"涨价":{"scene_goal":"用价格门槛变化打破观望，把用户从继续比较推进到涨价前完成报名或锁价。","user_mindset":"担心现在不定会买贵，但也需要确认涨价信息真实、权益值得锁定。","copy_direction":"围绕涨价前锁定、当前权益保留、窗口变化展开，拒绝无依据金额和优惠力度。","cta_direction":"涨价前锁定、立即保价、保留当前优惠、联系学业诊断师；涨价前锁定 / 立即保价 / 保留当前优惠","risk_notes":["未提供价格、涨价金额、涨价时间时，不得生成任何具体数字。","无依据具体金额","无依据优惠力度","过度低价感","单纯课程介绍","清新蓝白服务风不适合涨价，缺少损失压力。","礼盒庆典风如果没有警示层级，容易被误读为普通福利活动。","不要要求生图模型生成荣誉证书、奖状、成绩单、录取通知书等真实背书素材。","不要要求生图模型生成学员反馈截图、微信聊天截图、支付截图、报名截图等截图类素材。","不要要求生图模型生成老师人物照片、学员人物照片、真实头像或真人肖像。"]},"封班":{"scene_goal":"用报名通道关闭和班型停止分配制造最后窗口，推动观望用户完成最终决策。","user_mindset":"害怕错过本期安排，又需要确认这个提醒专业可信、不是粗暴催单。","copy_direction":"围绕封班、报名通道关闭、最后窗口、下一轮安排展开。","cta_direction":"封班前报名、扫码咨询、联系学业诊断师、确认报名资格；封班前报名 / 扫码咨询 / 联系学业诊断师","risk_notes":["未提供截止时间、名额、报名人数时，不能生成具体时间或仅剩X名。","过度恐吓","编造剩余名额","编造截止时间","普通开售表达","轻松可爱风不适合封班，会削弱关闭窗口的严肃性。","纯课程表风不适合封班，无法形成最后决策压力。","不要要求生图模型生成荣誉证书、奖状、成绩单、录取通知书等真实背书素材。","不要要求生图模型生成学员反馈截图、微信聊天截图、支付截图、报名截图等截图类素材。","不要要求生图模型生成老师人物照片、学员人物照片、真实头像或真人肖像。"]},"开课/服务开启":{"scene_goal":"提醒家长和学生完成入班与开课准备，提升服务感知和到课率","user_mindset":"","copy_direction":"围绕开课在即、服务开启、跟上节奏、领取资料展开，不写夸张提分承诺。","cta_direction":"立即报名开启服务 / 跟上开课节奏 / 领取课前资料","risk_notes":["强截杀","强涨价","夸张利益承诺","与服务无关的福利堆砌","强涨价风不适合开课服务，会把陪伴和确定性误导成价格威胁。","纯福利促销风不适合服务启动，会削弱专业履约感。","未提供具体开课时间时，只能使用开课在即、服务开启等模糊表达。","不要要求生图模型生成荣誉证书、奖状、成绩单、录取通知书等真实背书素材。","不要要求生图模型生成学员反馈截图、微信聊天截图、支付截图、报名截图等截图类素材。","不要要求生图模型生成老师人物照片、学员人物照片、真实头像或真人肖像。"]},"补录返场":{"scene_goal":"推动家长抓住补录返场机会完成报名","user_mindset":"","copy_direction":"围绕短暂开放、补录机会、错过后的补救展开，不写新品开售。","cta_direction":"领取返场权益 / 联系学业诊断师 / 补录报名","risk_notes":["新品开售表达","强涨价表达","普通福利海报","编造返场截止时间","普通开售风不适合返场，因为返场必须体现“错过后的再次开放”。","过度轻松福利风不适合返场，会削弱最后补救窗口。","未提供返场截止时间或名额时，不能生成具体截止点和剩余名额。","不要要求生图模型生成荣誉证书、奖状、成绩单、录取通知书等真实背书素材。","不要要求生图模型生成学员反馈截图、微信聊天截图、支付截图、报名截图等截图类素材。","不要要求生图模型生成老师人物照片、学员人物照片、真实头像或真人肖像。"]},"倒计时":{"scene_goal":"把涨价窗口压缩成倒计时，推动价格敏感用户在上调前完成锁定。","user_mindset":"担心晚决定会多花钱，需要明确知道现在行动能保留什么。","copy_direction":"围绕涨价前锁定、当前权益保留、价格窗口变化展开。","cta_direction":"涨价前锁定、立即保价、截止前报名、联系学业诊断师；截止前报名 / 立即锁定 / 扫码了解详情","risk_notes":["未提供涨价金额、涨价时间、优惠金额时，不得生成具体数字。","编造具体截止时间","编造倒计时天数/小时数","普通开售表达","视觉锚点不突出","无数字的普通公告风不适合倒计时，会失去场景核心。","过度复杂的课程介绍不适合首屏，会稀释倒计时压力。","未提供具体日期/时间/天数/小时数时，不得生成具体倒计时数字。","不要要求生图模型生成荣誉证书、奖状、成绩单、录取通知书等真实背书素材。","不要要求生图模型生成学员反馈截图、微信聊天截图、支付截图、报名截图等截图类素材。","不要要求生图模型生成老师人物照片、学员人物照片、真实头像或真人肖像。"]},"名额截杀/满班率":{"scene_goal":"通过名额稀缺和进度压力，推动家长尽快锁定席位","user_mindset":"","copy_direction":"围绕名额有限、席位紧张、窗口收窄展开，不写仅剩X名除非用户提供。","cta_direction":"抢占名额 / 扫码咨询余位 / 联系学业诊断师","risk_notes":["编造剩余名额","编造报名人数","过度恐慌","弱化稀缺的清淡介绍","纯情绪大字报不适合名额截杀，因为缺少数据证据会降低信任。","温和服务风不适合高余位压力节点，会削弱抢位动机。","没有业务提供的名额、报名人数、满班率时，严禁输出具体数字。","不要要求生图模型生成荣誉证书、奖状、成绩单、录取通知书等真实背书素材。","不要要求生图模型生成学员反馈截图、微信聊天截图、支付截图、报名截图等截图类素材。","不要要求生图模型生成老师人物照片、学员人物照片、真实头像或真人肖像。"]},"倒计时-封班":{"scene_goal":"将封班关闭窗口进一步压缩为倒计时压力，推动最后仍未行动的用户报名。","user_mindset":"知道窗口快关，但需要用明确时间压力理解这次是真的进入最后阶段。","copy_direction":"围绕倒计时、封班、通道关闭、最后窗口展开。","cta_direction":"封班前报名、扫码咨询、确认报名资格、快抢占；封班前报名 / 扫码咨询 / 确认报名资格","risk_notes":["未提供倒计时数字、截止时间、剩余名额时，一律使用模糊表达。","编造倒计时数字","编造截止时间","编造剩余名额","普通封班公告","普通封班公告不适合替代倒计时封班，缺少时间压缩。","不要要求生图模型生成荣誉证书、奖状、成绩单、录取通知书等真实背书素材。","不要要求生图模型生成学员反馈截图、微信聊天截图、支付截图、报名截图等截图类素材。","不要要求生图模型生成老师人物照片、学员人物照片、真实头像或真人肖像。"]},"倒计时-开课":{"scene_goal":"用开课倒计时提醒用户赶上第一节课和服务节奏，降低拖延导致的掉队感。","user_mindset":"担心错过第一节课、跟不上节奏，希望明确知道开课前该做什么。","copy_direction":"围绕开课在即、跟上节奏、领取资料、进入服务展开。","cta_direction":"赶上开课、立即报名加入、领取课前资料、进入学习服务；赶上开课 / 立即报名加入 / 领取课前资料","risk_notes":["未提供开课日期或时间时，不得生成具体开课时间。","封班截杀","过度涨价感","编造具体开课时间","低价福利导向","黑红封班风不适合开课倒计时，会削弱服务感。","不要要求生图模型生成荣誉证书、奖状、成绩单、录取通知书等真实背书素材。","不要要求生图模型生成学员反馈截图、微信聊天截图、支付截图、报名截图等截图类素材。","不要要求生图模型生成老师人物照片、学员人物照片、真实头像或真人肖像。"]},"倒计时-早鸟优惠":{"scene_goal":"把早鸟福利结束时间可视化，推动用户先锁定权益、提前规划。","user_mindset":"不想错过更划算的报名权益，但需要确认福利内容和行动入口。","copy_direction":"围绕早鸟、福利即将结束、锁定当前权益、早规划更划算展开。","cta_direction":"锁定早鸟优惠、领取福利、现在报名保价、咨询早鸟权益；锁定早鸟优惠 / 领取福利 / 现在报名保价","risk_notes":["未提供优惠金额、截止时间时，不得生成具体优惠数字或时间。","编造优惠金额","编造截止时间","封班恐慌","廉价甩卖","黑红停售风不适合早鸟优惠，容易显得廉价或压迫过度。","不要要求生图模型生成荣誉证书、奖状、成绩单、录取通知书等真实背书素材。","不要要求生图模型生成学员反馈截图、微信聊天截图、支付截图、报名截图等截图类素材。","不要要求生图模型生成老师人物照片、学员人物照片、真实头像或真人肖像。"]},"倒计时-涨价":{"scene_goal":"把涨价窗口压缩成倒计时，推动价格敏感用户在上调前完成锁定。","user_mindset":"担心晚决定会多花钱，需要明确知道现在行动能保留什么。","copy_direction":"围绕涨价前锁定、当前权益保留、价格窗口变化展开。","cta_direction":"涨价前锁定、立即保价、截止前报名、联系学业诊断师；涨价前锁定 / 立即保价 / 截止前报名","risk_notes":["未提供涨价金额、涨价时间、优惠金额时，不得生成具体数字。","编造涨价金额","编造具体涨价时间","编造优惠金额","普通优惠表达","普通优惠风不适合涨价倒计时，会削弱价格损失。","不要要求生图模型生成荣誉证书、奖状、成绩单、录取通知书等真实背书素材。","不要要求生图模型生成学员反馈截图、微信聊天截图、支付截图、报名截图等截图类素材。","不要要求生图模型生成老师人物照片、学员人物照片、真实头像或真人肖像。"]}},"visual_style_fragments":{"红金成交感":{"definition":"适合将报名、开售、封班、涨价前锁定等节点包装成强行动事件，同时保持教育产品的价值感。","color_language":"正红、深红、金色高光、少量暗蓝/黑色压层","background_language":"premium red and gold commercial education poster、layered red silk ribbon、golden 3D headline、glossy benefit cards、cinematic light beams","texture_language":"用红色建立报名窗口和节点事件感，用金色强化价值、仪式和课程权益的正式感。；适合将报名、开售、封班、涨价前锁定等节点包装成强行动事件，同时保持教育产品的价值感。","typography_language":"metallic_headline、light_beam、benefit_card、deadline_stamp、cta_button、background_particles","suitable_scenes":["开售","封班","倒计时","早鸟优惠","福利领取","返场","高考冲刺"],"avoid":["亲子沟通","学习习惯温和引导","售后政策说明","测评深度解读","避免廉价大促、低端红包感。","日期、价格、名额、倒计时必须来自真实输入，不得编造。"],"prompt_fragment":"视觉色系采用红金成交感；主色与辅助色：正红、深红、金色高光、少量暗蓝/黑色压层；热烈、正式、稀缺、行动导向；用红色建立报名窗口和节点事件感，用金色强化价值、仪式和课程权益的正式感。；可使用视觉关键词：premium red and gold commercial education poster、layered red silk ribbon、golden 3D headline、glossy benefit cards、cinematic light beams；常用元素：metallic_headline、light_beam、benefit_card、deadline_stamp、cta_button、background_particles；避免：避免廉价大促、低端红包感。、日期、价格、名额、倒计时必须来自真实输入，不得编造。；亲子沟通、学习习惯温和引导、售后政策说明、测评深度解读"},"黑金高端压迫感":{"definition":"仅在用户已充分理解产品价值、进入临门一脚决策时使用，用于强化损失规避。","color_language":"黑色、深灰、深红、金色高光、白色关键信息","background_language":"black gold premium urgent poster、metallic headline、dramatic spotlight、dark stage depth、red warning accent","texture_language":"用深色舞台和金属高光制造最后机会、停招、封班等不可逆节点的决策压力。；仅在用户已充分理解产品价值、进入临门一脚决策时使用，用于强化损失规避。","typography_language":"metallic_headline、spotlight、deadline_stamp、red_warning_bar、quota_seat_card","suitable_scenes":["最后封班","停招提醒","高价值课程名额截杀","高考终局节点"],"avoid":["普通开售","开课服务","早鸟优惠","资料包领取","品牌信任建设","压迫过强会让开售、服务类内容误读为危机通知。","黑红比例过大容易显得恐慌，需保留教育专业克制。"],"prompt_fragment":"视觉色系采用黑金高端压迫感；主色与辅助色：黑色、深灰、深红、金色高光、白色关键信息；高端、冷峻、压迫、强决策；用深色舞台和金属高光制造最后机会、停招、封班等不可逆节点的决策压力。；可使用视觉关键词：black gold premium urgent poster、metallic headline、dramatic spotlight、dark stage depth、red warning accent；常用元素：metallic_headline、spotlight、deadline_stamp、red_warning_bar、quota_seat_card；避免：压迫过强会让开售、服务类内容误读为危机通知。、黑红比例过大容易显得恐慌，需保留教育专业克制。；普通开售、开课服务、早鸟优惠、资料包领取、品牌信任建设"},"橙黄福利感":{"definition":"用于让用户先感到有收获、可领取、低门槛，再承接报名或出勤动作。","color_language":"橙色、黄色、暖金、白色内容卡、浅蓝辅助","background_language":"bright orange yellow benefit poster、gift box、warm glowing cards、student friendly commercial style、reward badges","texture_language":"降低强促销压迫感，突出早鸟、赠礼、资料包、课程权益的可获得性。；用于让用户先感到有收获、可领取、低门槛，再承接报名或出勤动作。","typography_language":"gift_box、price_tag、benefit_card、corner_badge、cta_button、reward_medal","suitable_scenes":["早鸟优惠","赠礼海报","资料包领取","学生动员","开售预热","促出勤奖励"],"avoid":["最后通牒","严肃涨价通知","高端名额截杀","冷静数据对比","避免滑向低价甩卖或幼龄卡通。","优惠和赠礼内容必须真实可兑现。"],"prompt_fragment":"视觉色系采用橙黄福利感；主色与辅助色：橙色、黄色、暖金、白色内容卡、浅蓝辅助；明亮、友好、福利、获得感；降低强促销压迫感，突出早鸟、赠礼、资料包、课程权益的可获得性。；可使用视觉关键词：bright orange yellow benefit poster、gift box、warm glowing cards、student friendly commercial style、reward badges；常用元素：gift_box、price_tag、benefit_card、corner_badge、cta_button、reward_medal；避免：避免滑向低价甩卖或幼龄卡通。、优惠和赠礼内容必须真实可兑现。；最后通牒、严肃涨价通知、高端名额截杀、冷静数据对比"},"蓝橙专业服务感":{"definition":"适合高信息密度服务说明，把复杂服务拆成流程、路径、卡片和行动入口。","color_language":"深蓝、天蓝、橙色行动点、白色卡片、浅灰背景","background_language":"blue orange professional education service poster、clean infographic cards、learning pathway、service flow diagram","texture_language":"蓝色承载信任和稳定，橙色提示下一步行动，适合把课程和服务包装成学习解决方案。；适合高信息密度服务说明，把复杂服务拆成流程、路径、卡片和行动入口。","typography_language":"service_flow_diagram、learning_path_line、course_card、subject_icon_matrix、cta_button","suitable_scenes":["开课服务","课程说明","学业规划","测评解读","自学vs报班","服务流程"],"avoid":["强封班截杀","最后通牒倒计时","纯成交大促主图","专业感不等于小字堆砌。","橙色行动点要突出，否则转化弱。"],"prompt_fragment":"视觉色系采用蓝橙专业服务感；主色与辅助色：深蓝、天蓝、橙色行动点、白色卡片、浅灰背景；专业、清晰、积极、可陪伴；蓝色承载信任和稳定，橙色提示下一步行动，适合把课程和服务包装成学习解决方案。；可使用视觉关键词：blue orange professional education service poster、clean infographic cards、learning pathway、service flow diagram；常用元素：service_flow_diagram、learning_path_line、course_card、subject_icon_matrix、cta_button；避免：专业感不等于小字堆砌。、橙色行动点要突出，否则转化弱。；强封班截杀、最后通牒倒计时、纯成交大促主图"},"蓝白科技清爽感":{"definition":"用于需要理性、数据、工具感的海报，帮助用户相信课程匹配问题而非单纯促销。","color_language":"蓝色、白色、浅灰、少量橙色/荧光蓝强调","background_language":"blue white clean technology education poster、data cards、academic dashboard、minimal premium glow","texture_language":"承载诊断、测评、数据分析、学情报告，让销售专业性更强。；用于需要理性、数据、工具感的海报，帮助用户相信课程匹配问题而非单纯促销。","typography_language":"exam_answer_card、service_flow_diagram、subject_icon_matrix、comparison_table、background_particles","suitable_scenes":["测评解读","试卷分析","学情诊断","服务体系","课程路径","政策信息解读"],"avoid":["福利大促","封班最后通牒","喜报庆典节点","过清淡会降低成交刺激。","必须保留明确 CTA 和关键数据高亮。"],"prompt_fragment":"视觉色系采用蓝白科技清爽感；主色与辅助色：蓝色、白色、浅灰、少量橙色/荧光蓝强调；冷静、可信、科技、清爽；承载诊断、测评、数据分析、学情报告，让销售专业性更强。；可使用视觉关键词：blue white clean technology education poster、data cards、academic dashboard、minimal premium glow；常用元素：exam_answer_card、service_flow_diagram、subject_icon_matrix、comparison_table、background_particles；避免：过清淡会降低成交刺激。、必须保留明确 CTA 和关键数据高亮。；福利大促、封班最后通牒、喜报庆典节点"},"红橙警示行动感":{"definition":"适合销售端快速转发的行动提醒海报，文案要短、钩子要强、CTA 要明确。","color_language":"红色、橙色、白色强对比、局部黑字","background_language":"red orange urgent action poster、warning strip、bold countdown number、deadline stamp、high contrast CTA","texture_language":"把截止时间、补录、下架、临近开课转为一眼可见的行动提醒。；适合销售端快速转发的行动提醒海报，文案要短、钩子要强、CTA 要明确。","typography_language":"alarm_clock、calendar、countdown_number、red_warning_bar、cta_button、deadline_stamp","suitable_scenes":["倒计时","涨价","开课前提醒","补录窗口","返场","截杀海报"],"avoid":["长期品牌信任","复杂课程体系说明","温和亲子沟通","不得编造具体截止日期和倒计时数字。","警示感要服务行动，不做恐吓式表达。"],"prompt_fragment":"视觉色系采用红橙警示行动感；主色与辅助色：红色、橙色、白色强对比、局部黑字；醒目、急迫、提醒、行动导向；把截止时间、补录、下架、临近开课转为一眼可见的行动提醒。；可使用视觉关键词：red orange urgent action poster、warning strip、bold countdown number、deadline stamp、high contrast CTA；常用元素：alarm_clock、calendar、countdown_number、red_warning_bar、cta_button、deadline_stamp；避免：不得编造具体截止日期和倒计时数字。、警示感要服务行动，不做恐吓式表达。；长期品牌信任、复杂课程体系说明、温和亲子沟通"}},"layout_fragments":{"中轴聚焦式":{"definition":"主标题或核心视觉居中放大，周围用权益、时间、名额、CTA 做环绕承接。","composition":"主标题或核心视觉居中放大，周围用权益、时间、名额、CTA 做环绕承接。；画面中上部或正中央，占据 35%-50% 首屏面积。","information_hierarchy":"主标题 -> 核心利益/节点 -> 补充权益 -> CTA","module_arrangement":"适合 1 个主信息 + 2-4 个辅助模块。；用于必须第一眼建立事件感和行动压力的转化海报。","suitable_scenes":["开售","封班","倒计时","涨价","返场"],"avoid":["多班型表格","复杂课程说明","细流程服务说明","主标题不能被装饰压住。","CTA 必须在主视觉后能被顺畅读到。"],"prompt_fragment":"布局采用中轴聚焦式；主标题或核心视觉居中放大，周围用权益、时间、名额、CTA 做环绕承接。；画面中上部或正中央，占据 35%-50% 首屏面积。；阅读顺序：主标题 -> 核心利益/节点 -> 补充权益 -> CTA；适合 1 个主信息 + 2-4 个辅助模块。；用于必须第一眼建立事件感和行动压力的转化海报。；构图关键词：centered hero composition、large central 3D headline、radial light focus；避免：多班型表格、复杂课程说明、细流程服务说明、主标题不能被装饰压住。、CTA 必须在主视觉后能被顺畅读到。"},"上下分层式":{"definition":"上方建立主题和情绪，下方承载权益、课程、流程或行动入口。","composition":"上方建立主题和情绪，下方承载权益、课程、流程或行动入口。；上半区标题，底部 35%-45% 用于卡片或行动条。","information_hierarchy":"标题 -> 副标题/场景解释 -> 模块内容 -> CTA","module_arrangement":"适合 3-6 个信息模块。；当既要强主标题又要解释产品/服务价值时使用。","suitable_scenes":["开售","开课服务","早鸟优惠","资料包","课程说明"],"avoid":["需要强左右对比的竞品/自学对比","极短截杀通知","上下层级要清楚。","底部文字不能过密或贴边。"],"prompt_fragment":"布局采用上下分层式；上方建立主题和情绪，下方承载权益、课程、流程或行动入口。；上半区标题，底部 35%-45% 用于卡片或行动条。；阅读顺序：标题 -> 副标题/场景解释 -> 模块内容 -> CTA；适合 3-6 个信息模块。；当既要强主标题又要解释产品/服务价值时使用。；构图关键词：top hero title bottom information cards、layered vertical poster layout；避免：需要强左右对比的竞品/自学对比、极短截杀通知、上下层级要清楚。、底部文字不能过密或贴边。"},"卡片矩阵式":{"definition":"用 2-6 张卡片承载课程、服务、权益、资料或学科模块。","composition":"用 2-6 张卡片承载课程、服务、权益、资料或学科模块。；标题在上，卡片矩阵占中下部主体区域。","information_hierarchy":"总标题 -> 卡片逐项扫描 -> 重点高亮 -> CTA","module_arrangement":"适合 4-8 个短模块，不适合长段落。；用于把复杂价值拆成可扫读的模块，提升销售转发后的理解效率。","suitable_scenes":["课程体系","开课服务","资料包","福利清单","测评解读"],"avoid":["最后通牒","单一大倒计时","极强情绪节点","卡片标题要短。","卡片之间要有明确主次，不做平均用力。"],"prompt_fragment":"布局采用卡片矩阵式；用 2-6 张卡片承载课程、服务、权益、资料或学科模块。；标题在上，卡片矩阵占中下部主体区域。；阅读顺序：总标题 -> 卡片逐项扫描 -> 重点高亮 -> CTA；适合 4-8 个短模块，不适合长段落。；用于把复杂价值拆成可扫读的模块，提升销售转发后的理解效率。；构图关键词：glossy card grid、modular education information cards、clean scanable layout；避免：最后通牒、单一大倒计时、极强情绪节点、卡片标题要短。、卡片之间要有明确主次，不做平均用力。"},"左右对比式":{"definition":"左右两栏对比自学/报班、行动/拖延、现在/以后、服务前/服务后。","composition":"左右两栏对比自学/报班、行动/拖延、现在/以后、服务前/服务后。；中部对比区域，结论或推荐方案应有明显高亮。","information_hierarchy":"对比命题 -> 左侧问题 -> 右侧方案 -> 结论/CTA","module_arrangement":"适合 2-5 组对比点。；用于帮助家长完成理性判断，把犹豫变成选择。","suitable_scenes":["自学vs报班","竞品对比","学习问题诊断","课程价值证明"],"avoid":["纯倒计时","喜报庆典","最后通牒","左右对比必须有强结论。","避免两边信息都弱、没有推荐方向。"],"prompt_fragment":"布局采用左右对比式；左右两栏对比自学/报班、行动/拖延、现在/以后、服务前/服务后。；中部对比区域，结论或推荐方案应有明显高亮。；阅读顺序：对比命题 -> 左侧问题 -> 右侧方案 -> 结论/CTA；适合 2-5 组对比点。；用于帮助家长完成理性判断，把犹豫变成选择。；构图关键词：split screen comparison、blue orange comparison infographic、clear before after panels；避免：纯倒计时、喜报庆典、最后通牒、左右对比必须有强结论。、避免两边信息都弱、没有推荐方向。"},"公告通知式":{"definition":"以公告板、纸张、印章、警示条形式发布开课、截止、补录、政策类通知。","composition":"以公告板、纸张、印章、警示条形式发布开课、截止、补录、政策类通知。；公告主体居中，印章或警示条做视觉锚点。","information_hierarchy":"公告标题 -> 关键时间/事项 -> 影响说明 -> CTA","module_arrangement":"适合 2-4 条事项说明。；用于需要权威、明确、可转发的节点通知。","suitable_scenes":["开课提醒","截止通知","涨价通知","补录","售后政策"],"avoid":["复杂课程体系","福利堆叠","情绪化喜报","公告信息必须真实。","时间、价格、名额等敏感字段缺失时不得自动补写。"],"prompt_fragment":"布局采用公告通知式；以公告板、纸张、印章、警示条形式发布开课、截止、补录、政策类通知。；公告主体居中，印章或警示条做视觉锚点。；阅读顺序：公告标题 -> 关键时间/事项 -> 影响说明 -> CTA；适合 2-4 条事项说明。；用于需要权威、明确、可转发的节点通知。；构图关键词：official notice board layout、deadline stamp、paper announcement panel；避免：复杂课程体系、福利堆叠、情绪化喜报、公告信息必须真实。、时间、价格、名额等敏感字段缺失时不得自动补写。"},"超大数字倒计时式":{"definition":"用超大数字或翻牌作为第一视觉，配合截止原因和行动按钮。","composition":"用超大数字或翻牌作为第一视觉，配合截止原因和行动按钮。；数字居中或偏上，占据 40% 左右视觉面积。","information_hierarchy":"倒计时数字 -> 截止事项 -> 损失/权益说明 -> CTA","module_arrangement":"适合短文案，最多 3 个辅助信息点。；当真实截止时间明确时使用，快速制造行动压力。","suitable_scenes":["倒计时","封班","涨价","开课前提醒","返场截止"],"avoid":["无明确截止日期的普通开售","长服务说明","测评报告解读","不得编造倒计时数字。","数字与截止事项必须一致。"],"prompt_fragment":"布局采用超大数字倒计时式；用超大数字或翻牌作为第一视觉，配合截止原因和行动按钮。；数字居中或偏上，占据 40% 左右视觉面积。；阅读顺序：倒计时数字 -> 截止事项 -> 损失/权益说明 -> CTA；适合短文案，最多 3 个辅助信息点。；当真实截止时间明确时使用，快速制造行动压力。；构图关键词：giant countdown number、flip countdown board、urgent deadline poster；避免：无明确截止日期的普通开售、长服务说明、测评报告解读、不得编造倒计时数字。、数字与截止事项必须一致。"},"权益堆叠式":{"definition":"用礼盒、权益卡、价格标签、奖励章堆叠呈现报名收益。","composition":"用礼盒、权益卡、价格标签、奖励章堆叠呈现报名收益。；礼盒或权益堆位于中部，卡片向外层叠展开。","information_hierarchy":"福利主题 -> 核心权益 -> 附加权益 -> 领取/报名 CTA","module_arrangement":"适合 4-8 个权益点。；用于降低决策成本，让用户觉得现在行动有明确所得。","suitable_scenes":["早鸟优惠","赠礼","资料包","开售权益","促出勤奖励"],"avoid":["严肃涨价","服务流程","竞品对比","权益必须可兑现。","不要把福利堆成无主次杂物。"],"prompt_fragment":"布局采用权益堆叠式；用礼盒、权益卡、价格标签、奖励章堆叠呈现报名收益。；礼盒或权益堆位于中部，卡片向外层叠展开。；阅读顺序：福利主题 -> 核心权益 -> 附加权益 -> 领取/报名 CTA；适合 4-8 个权益点。；用于降低决策成本，让用户觉得现在行动有明确所得。；构图关键词：stacked benefit cards、gift box hero、reward bundle layout；避免：严肃涨价、服务流程、竞品对比、权益必须可兑现。、不要把福利堆成无主次杂物。"},"流程路径式":{"definition":"用横向/纵向路径线说明服务步骤、学习路径、课程进阶或测评解读流程。","composition":"用横向/纵向路径线说明服务步骤、学习路径、课程进阶或测评解读流程。；路径线贯穿中部，关键节点使用图标或数字突出。","information_hierarchy":"目标/问题 -> 步骤 1 -> 步骤 2 -> 步骤 3 -> 结果/CTA","module_arrangement":"适合 3-6 个流程节点。；用于让复杂服务可视化，建立专业感和确定感。","suitable_scenes":["开课服务","学习规划","测评解读","课程路径","促出勤指引"],"avoid":["最后通牒","单点福利","封班截杀","步骤顺序必须清晰。","每个节点文字要短且可执行。"],"prompt_fragment":"布局采用流程路径式；用横向/纵向路径线说明服务步骤、学习路径、课程进阶或测评解读流程。；路径线贯穿中部，关键节点使用图标或数字突出。；阅读顺序：目标/问题 -> 步骤 1 -> 步骤 2 -> 步骤 3 -> 结果/CTA；适合 3-6 个流程节点。；用于让复杂服务可视化，建立专业感和确定感。；构图关键词：learning pathway diagram、service process flow、clean education roadmap；避免：最后通牒、单点福利、封班截杀、步骤顺序必须清晰。、每个节点文字要短且可执行。"}},"advanced_element_fragments":{"时间紧迫类":{"definition":"时间紧迫类由既有规则元素分组定义，包含：闹钟、日历、倒计时数字、翻牌、截止印章、时间进度条、红色提醒条","visual_elements":["闹钟","日历","倒计时数字","翻牌","截止印章","时间进度条","红色提醒条"],"usage_rules":"用于真实临近节点，不单独承担具体日期。、日期必须来自输入。、禁止编造具体天数/小时数。、适合短文案。、不得伪造已截止事实。","risk_notes":["用于真实临近节点，不单独承担具体日期。","日期必须来自输入。","禁止编造具体天数/小时数。","适合短文案。","不得伪造已截止事实。"],"prompt_fragment":"高级元素选择时间紧迫类；可视元素：闹钟、日历、倒计时数字、翻牌、截止印章、时间进度条、红色提醒条；元素关键词：闹钟、alarm clock、premium education poster visual element、日历、calendar、倒计时数字、countdown number、翻牌、flip card、截止印章、deadline stamp；使用边界：用于真实临近节点，不单独承担具体日期。、日期必须来自输入。、禁止编造具体天数/小时数。、适合短文案。、不得伪造已截止事实。；风险提醒：用于真实临近节点，不单独承担具体日期。、日期必须来自输入。、禁止编造具体天数/小时数。、适合短文案。、不得伪造已截止事实。"},"成交转化类":{"definition":"成交转化类由既有规则元素分组定义，包含：CTA按钮、价格标签、上升箭头、成交光效、行动提示条、稀缺提示标签","visual_elements":["CTA按钮","价格标签","上升箭头","成交光效","行动提示条","稀缺提示标签"],"usage_rules":"无价格输入时只写价格窗口，不写数字。、涨价金额必须真实。","risk_notes":["无价格输入时只写价格窗口，不写数字。","涨价金额必须真实。"],"prompt_fragment":"高级元素选择成交转化类；可视元素：CTA按钮、价格标签、上升箭头、成交光效、行动提示条、稀缺提示标签；元素关键词：价格标签、price tag、premium education poster visual element、上升箭头、rising arrow；使用边界：无价格输入时只写价格窗口，不写数字。、涨价金额必须真实。；风险提醒：无价格输入时只写价格窗口，不写数字。、涨价金额必须真实。"},"福利权益类":{"definition":"福利权益类由既有规则元素分组定义，包含：礼盒、权益卡、优惠标签、福利清单、加赠模块、活动角标","visual_elements":["礼盒","权益卡","优惠标签","福利清单","加赠模块","活动角标"],"usage_rules":"避免低幼卡通。、单卡最多 1 个重点。","risk_notes":["避免低幼卡通。","单卡最多 1 个重点。"],"prompt_fragment":"高级元素选择福利权益类；可视元素：礼盒、权益卡、优惠标签、福利清单、加赠模块、活动角标；元素关键词：礼盒、gift box、premium education poster visual element、权益卡、benefit card；使用边界：避免低幼卡通。、单卡最多 1 个重点。；风险提醒：避免低幼卡通。、单卡最多 1 个重点。"},"服务专业类":{"definition":"服务专业类由既有规则元素分组定义，包含：课程卡片、服务流程图、学习路径线、规划时间轴、讲义资料卡、直播课模块","visual_elements":["课程卡片","服务流程图","学习路径线","规划时间轴","讲义资料卡","直播课模块"],"usage_rules":"课程名/时间需准确。、步骤不要超过 6 个。、节点要有递进关系。","risk_notes":["课程名/时间需准确。","步骤不要超过 6 个。","节点要有递进关系。"],"prompt_fragment":"高级元素选择服务专业类；可视元素：课程卡片、服务流程图、学习路径线、规划时间轴、讲义资料卡、直播课模块；元素关键词：课程卡片、course card、premium education poster visual element、服务流程图、service flow diagram、学习路径线、learning path line；使用边界：课程名/时间需准确。、步骤不要超过 6 个。、节点要有递进关系。；风险提醒：课程名/时间需准确。、步骤不要超过 6 个。、节点要有递进关系。"},"信任背书类":{"definition":"信任背书类由既有规则元素分组定义，包含：品牌背书标签、权威感信息卡、服务承诺说明卡、课程体系标签、教研实力标签、用户口碑文字标签、数据说明卡片、可信赖感角标、品牌色印章、规范化信息栏","visual_elements":["品牌背书标签","权威感信息卡","服务承诺说明卡","课程体系标签","教研实力标签","用户口碑文字标签","数据说明卡片","可信赖感角标","品牌色印章","规范化信息栏"],"usage_rules":"","risk_notes":[],"prompt_fragment":"高级元素选择信任背书类；可视元素：品牌背书标签、权威感信息卡、服务承诺说明卡、课程体系标签、教研实力标签、用户口碑文字标签、数据说明卡片、可信赖感角标、品牌色印章、规范化信息栏"},"质感氛围类":{"definition":"质感氛围类由既有规则元素分组定义，包含：金属标题、光束、聚光灯、背景粒子、渐变光晕、纸张纹理、立体卡片、高级阴影、半透明玻璃层","visual_elements":["金属标题","光束","聚光灯","背景粒子","渐变光晕","纸张纹理","立体卡片","高级阴影","半透明玻璃层"],"usage_rules":"避免粗糙描边。、不能遮挡文字。、服务类慎用。、不能喧宾夺主。","risk_notes":["避免粗糙描边。","不能遮挡文字。","服务类慎用。","不能喧宾夺主。"],"prompt_fragment":"高级元素选择质感氛围类；可视元素：金属标题、光束、聚光灯、背景粒子、渐变光晕、纸张纹理、立体卡片、高级阴影、半透明玻璃层；元素关键词：金属标题、metallic headline、premium education poster visual element、光束、light beam、聚光灯、spotlight、背景粒子、background particles；使用边界：避免粗糙描边。、不能遮挡文字。、服务类慎用。、不能喧宾夺主。；风险提醒：避免粗糙描边。、不能遮挡文字。、服务类慎用。、不能喧宾夺主。"}},"advanced_element_detail_catalog":{"时间紧迫类":[{"name":"闹钟","prompt_fragment":"在画面中可使用“闹钟”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"用于真实临近节点，不单独承担具体日期。、日期必须来自输入。、禁止编造具体天数/小时数。、适合短文案。、不得伪造已截止事实。","risk_note":"用于真实临近节点，不单独承担具体日期。；日期必须来自输入。；禁止编造具体天数/小时数。；适合短文案。；不得伪造已截止事实。"},{"name":"日历","prompt_fragment":"在画面中可使用“日历”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"用于真实临近节点，不单独承担具体日期。、日期必须来自输入。、禁止编造具体天数/小时数。、适合短文案。、不得伪造已截止事实。","risk_note":"用于真实临近节点，不单独承担具体日期。；日期必须来自输入。；禁止编造具体天数/小时数。；适合短文案。；不得伪造已截止事实。"},{"name":"倒计时数字","prompt_fragment":"在画面中可使用“倒计时数字”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"用于真实临近节点，不单独承担具体日期。、日期必须来自输入。、禁止编造具体天数/小时数。、适合短文案。、不得伪造已截止事实。","risk_note":"用于真实临近节点，不单独承担具体日期。；日期必须来自输入。；禁止编造具体天数/小时数。；适合短文案。；不得伪造已截止事实。"},{"name":"翻牌","prompt_fragment":"在画面中可使用“翻牌”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"用于真实临近节点，不单独承担具体日期。、日期必须来自输入。、禁止编造具体天数/小时数。、适合短文案。、不得伪造已截止事实。","risk_note":"用于真实临近节点，不单独承担具体日期。；日期必须来自输入。；禁止编造具体天数/小时数。；适合短文案。；不得伪造已截止事实。"},{"name":"截止印章","prompt_fragment":"在画面中可使用“截止印章”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"用于真实临近节点，不单独承担具体日期。、日期必须来自输入。、禁止编造具体天数/小时数。、适合短文案。、不得伪造已截止事实。","risk_note":"用于真实临近节点，不单独承担具体日期。；日期必须来自输入。；禁止编造具体天数/小时数。；适合短文案。；不得伪造已截止事实。"},{"name":"时间进度条","prompt_fragment":"在画面中可使用“时间进度条”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"用于真实临近节点，不单独承担具体日期。、日期必须来自输入。、禁止编造具体天数/小时数。、适合短文案。、不得伪造已截止事实。","risk_note":"用于真实临近节点，不单独承担具体日期。；日期必须来自输入。；禁止编造具体天数/小时数。；适合短文案。；不得伪造已截止事实。"},{"name":"红色提醒条","prompt_fragment":"在画面中可使用“红色提醒条”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"用于真实临近节点，不单独承担具体日期。、日期必须来自输入。、禁止编造具体天数/小时数。、适合短文案。、不得伪造已截止事实。","risk_note":"用于真实临近节点，不单独承担具体日期。；日期必须来自输入。；禁止编造具体天数/小时数。；适合短文案。；不得伪造已截止事实。"}],"成交转化类":[{"name":"CTA按钮","prompt_fragment":"在画面中可使用“CTA按钮”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"无价格输入时只写价格窗口，不写数字。、涨价金额必须真实。","risk_note":"无价格输入时只写价格窗口，不写数字。；涨价金额必须真实。"},{"name":"价格标签","prompt_fragment":"在画面中可使用“价格标签”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"无价格输入时只写价格窗口，不写数字。、涨价金额必须真实。","risk_note":"无价格输入时只写价格窗口，不写数字。；涨价金额必须真实。"},{"name":"上升箭头","prompt_fragment":"在画面中可使用“上升箭头”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"无价格输入时只写价格窗口，不写数字。、涨价金额必须真实。","risk_note":"无价格输入时只写价格窗口，不写数字。；涨价金额必须真实。"},{"name":"成交光效","prompt_fragment":"在画面中可使用“成交光效”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"无价格输入时只写价格窗口，不写数字。、涨价金额必须真实。","risk_note":"无价格输入时只写价格窗口，不写数字。；涨价金额必须真实。"},{"name":"行动提示条","prompt_fragment":"在画面中可使用“行动提示条”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"无价格输入时只写价格窗口，不写数字。、涨价金额必须真实。","risk_note":"无价格输入时只写价格窗口，不写数字。；涨价金额必须真实。"},{"name":"稀缺提示标签","prompt_fragment":"在画面中可使用“稀缺提示标签”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"无价格输入时只写价格窗口，不写数字。、涨价金额必须真实。","risk_note":"无价格输入时只写价格窗口，不写数字。；涨价金额必须真实。"}],"福利权益类":[{"name":"礼盒","prompt_fragment":"在画面中可使用“礼盒”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"避免低幼卡通。、单卡最多 1 个重点。","risk_note":"避免低幼卡通。；单卡最多 1 个重点。"},{"name":"权益卡","prompt_fragment":"在画面中可使用“权益卡”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"避免低幼卡通。、单卡最多 1 个重点。","risk_note":"避免低幼卡通。；单卡最多 1 个重点。"},{"name":"优惠标签","prompt_fragment":"在画面中可使用“优惠标签”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"避免低幼卡通。、单卡最多 1 个重点。","risk_note":"避免低幼卡通。；单卡最多 1 个重点。"},{"name":"福利清单","prompt_fragment":"在画面中可使用“福利清单”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"避免低幼卡通。、单卡最多 1 个重点。","risk_note":"避免低幼卡通。；单卡最多 1 个重点。"},{"name":"加赠模块","prompt_fragment":"在画面中可使用“加赠模块”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"避免低幼卡通。、单卡最多 1 个重点。","risk_note":"避免低幼卡通。；单卡最多 1 个重点。"},{"name":"活动角标","prompt_fragment":"在画面中可使用“活动角标”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"避免低幼卡通。、单卡最多 1 个重点。","risk_note":"避免低幼卡通。；单卡最多 1 个重点。"}],"服务专业类":[{"name":"课程卡片","prompt_fragment":"在画面中可使用“课程卡片”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"课程名/时间需准确。、步骤不要超过 6 个。、节点要有递进关系。","risk_note":"课程名/时间需准确。；步骤不要超过 6 个。；节点要有递进关系。"},{"name":"服务流程图","prompt_fragment":"在画面中可使用“服务流程图”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"课程名/时间需准确。、步骤不要超过 6 个。、节点要有递进关系。","risk_note":"课程名/时间需准确。；步骤不要超过 6 个。；节点要有递进关系。"},{"name":"学习路径线","prompt_fragment":"在画面中可使用“学习路径线”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"课程名/时间需准确。、步骤不要超过 6 个。、节点要有递进关系。","risk_note":"课程名/时间需准确。；步骤不要超过 6 个。；节点要有递进关系。"},{"name":"规划时间轴","prompt_fragment":"在画面中可使用“规划时间轴”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"课程名/时间需准确。、步骤不要超过 6 个。、节点要有递进关系。","risk_note":"课程名/时间需准确。；步骤不要超过 6 个。；节点要有递进关系。"},{"name":"讲义资料卡","prompt_fragment":"在画面中可使用“讲义资料卡”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"课程名/时间需准确。、步骤不要超过 6 个。、节点要有递进关系。","risk_note":"课程名/时间需准确。；步骤不要超过 6 个。；节点要有递进关系。"},{"name":"直播课模块","prompt_fragment":"在画面中可使用“直播课模块”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"课程名/时间需准确。、步骤不要超过 6 个。、节点要有递进关系。","risk_note":"课程名/时间需准确。；步骤不要超过 6 个。；节点要有递进关系。"}],"信任背书类":[{"name":"品牌背书标签","prompt_fragment":"在画面中可使用“品牌背书标签”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"轻量使用，服务主标题和转化目标。","risk_note":""},{"name":"权威感信息卡","prompt_fragment":"在画面中可使用“权威感信息卡”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"轻量使用，服务主标题和转化目标。","risk_note":""},{"name":"服务承诺说明卡","prompt_fragment":"在画面中可使用“服务承诺说明卡”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"轻量使用，服务主标题和转化目标。","risk_note":""},{"name":"课程体系标签","prompt_fragment":"在画面中可使用“课程体系标签”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"轻量使用，服务主标题和转化目标。","risk_note":""},{"name":"教研实力标签","prompt_fragment":"在画面中可使用“教研实力标签”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"轻量使用，服务主标题和转化目标。","risk_note":""},{"name":"用户口碑文字标签","prompt_fragment":"在画面中可使用“用户口碑文字标签”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"轻量使用，服务主标题和转化目标。","risk_note":""},{"name":"数据说明卡片","prompt_fragment":"在画面中可使用“数据说明卡片”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"轻量使用，服务主标题和转化目标。","risk_note":""},{"name":"可信赖感角标","prompt_fragment":"在画面中可使用“可信赖感角标”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"轻量使用，服务主标题和转化目标。","risk_note":""}],"质感氛围类":[{"name":"金属标题","prompt_fragment":"在画面中可使用“金属标题”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"避免粗糙描边。、不能遮挡文字。、服务类慎用。、不能喧宾夺主。","risk_note":"避免粗糙描边。；不能遮挡文字。；服务类慎用。；不能喧宾夺主。"},{"name":"光束","prompt_fragment":"在画面中可使用“光束”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"避免粗糙描边。、不能遮挡文字。、服务类慎用。、不能喧宾夺主。","risk_note":"避免粗糙描边。；不能遮挡文字。；服务类慎用。；不能喧宾夺主。"},{"name":"聚光灯","prompt_fragment":"在画面中可使用“聚光灯”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"避免粗糙描边。、不能遮挡文字。、服务类慎用。、不能喧宾夺主。","risk_note":"避免粗糙描边。；不能遮挡文字。；服务类慎用。；不能喧宾夺主。"},{"name":"背景粒子","prompt_fragment":"在画面中可使用“背景粒子”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"避免粗糙描边。、不能遮挡文字。、服务类慎用。、不能喧宾夺主。","risk_note":"避免粗糙描边。；不能遮挡文字。；服务类慎用。；不能喧宾夺主。"},{"name":"渐变光晕","prompt_fragment":"在画面中可使用“渐变光晕”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"避免粗糙描边。、不能遮挡文字。、服务类慎用。、不能喧宾夺主。","risk_note":"避免粗糙描边。；不能遮挡文字。；服务类慎用。；不能喧宾夺主。"},{"name":"纸张纹理","prompt_fragment":"在画面中可使用“纸张纹理”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"避免粗糙描边。、不能遮挡文字。、服务类慎用。、不能喧宾夺主。","risk_note":"避免粗糙描边。；不能遮挡文字。；服务类慎用。；不能喧宾夺主。"},{"name":"立体卡片","prompt_fragment":"在画面中可使用“立体卡片”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"避免粗糙描边。、不能遮挡文字。、服务类慎用。、不能喧宾夺主。","risk_note":"避免粗糙描边。；不能遮挡文字。；服务类慎用。；不能喧宾夺主。"},{"name":"高级阴影","prompt_fragment":"在画面中可使用“高级阴影”作为辅助视觉元素，但不要抢占主标题。","usage_rule":"避免粗糙描边。、不能遮挡文字。、服务类慎用。、不能喧宾夺主。","risk_note":"避免粗糙描边。；不能遮挡文字。；服务类慎用。；不能喧宾夺主。"}]},"scene_to_visual_recommendation":{"开售":{"recommended_styles":["红金成交感"],"recommended_layouts":["中轴聚焦式"],"recommended_elements":["成交转化类","福利权益类","服务专业类"],"reason":"优先明亮红金或蓝橙，保持高级发布感，避免黑红强压迫。；用中轴主标题承接开售信息，下方用权益卡、课程卡或班型矩阵承接价值。；围绕正式开放、提前规划、权益清晰、现在了解展开，不写无依据截止与名额。"},"涨价":{"recommended_styles":["红橙警示行动感"],"recommended_layouts":["中轴聚焦式"],"recommended_elements":["成交转化类","时间紧迫类","质感氛围类"],"reason":"红橙金为主，临近最后节点可加入黑红金，但保持专业克制。；采用主标题、价格窗口提示、权益损失说明、CTA四段式。；围绕涨价前锁定、当前权益保留、窗口变化展开，拒绝无依据金额和优惠力度。"},"封班":{"recommended_styles":["红金成交感"],"recommended_layouts":["中轴聚焦式"],"recommended_elements":["时间紧迫类","成交转化类","质感氛围类"],"reason":"红金或黑红金增强紧迫，避免粗糙廉价的恐吓感。；优先中心爆点或正式公告结构，用三段递进解释为什么现在要行动。；围绕封班、报名通道关闭、最后窗口、下一轮安排展开。"},"开课/服务开启":{"recommended_styles":["蓝橙专业服务感"],"recommended_layouts":["流程路径式"],"recommended_elements":["服务专业类","信任背书类","福利权益类"],"reason":"蓝橙为主，必要时加入红金仪式感，不使用黑红恐吓。；用流程/时间轴/课程卡呈现服务步骤，减少强截杀式大字压迫。；围绕开课在即、服务开启、跟上节奏、领取资料展开，不写夸张提分承诺。"},"补录返场":{"recommended_styles":["红金成交感"],"recommended_layouts":["中轴聚焦式"],"recommended_elements":["时间紧迫类","福利权益类","成交转化类"],"reason":"红金或深红金增强最后机会感，避免普通福利海报的松散感。；以返场主标题和补录票券为核心，配合权益卡和行动按钮。；围绕短暂开放、补录机会、错过后的补救展开，不写新品开售。"},"倒计时":{"recommended_styles":["红金成交感"],"recommended_layouts":["超大数字倒计时式"],"recommended_elements":["时间紧迫类","成交转化类","质感氛围类"],"reason":"红金/红白用于强提醒，蓝橙用于开课或校园行动提醒。；超大数字或翻牌居中，次级区域说明倒计时对应事项和行动入口。；围绕倒计时开启、即将截止、窗口收紧展开，未提供时间时只用模糊表达。"},"名额截杀/满班率":{"recommended_styles":["红金成交感"],"recommended_layouts":["中轴聚焦式"],"recommended_elements":["时间紧迫类","成交转化类","信任背书类"],"reason":"红金/红橙强化紧张，蓝橙可用于更可信的数据看板。；优先数据仪表盘、进度条或席位卡结构，关键信息集中在首屏。；围绕名额有限、席位紧张、窗口收窄展开，不写仅剩X名除非用户提供。"},"倒计时-封班":{"recommended_styles":["红金成交感"],"recommended_layouts":["超大数字倒计时式"],"recommended_elements":["时间紧迫类","成交转化类","质感氛围类"],"reason":"红金或黑红金强提醒，保留高级质感和正式公告感。；超大倒计时数字在上/中轴，封班公告和CTA紧随其后。；围绕倒计时、封班、通道关闭、最后窗口展开。"},"倒计时-开课":{"recommended_styles":["蓝橙专业服务感"],"recommended_layouts":["超大数字倒计时式"],"recommended_elements":["时间紧迫类","服务专业类","信任背书类"],"reason":"蓝橙为主，加入少量红金仪式感即可。；时间轴/课程入口卡优先，清楚呈现开课前行动清单。；围绕开课在即、跟上节奏、领取资料、进入服务展开。"},"倒计时-早鸟优惠":{"recommended_styles":["橙黄福利感"],"recommended_layouts":["权益堆叠式"],"recommended_elements":["时间紧迫类","福利权益类","成交转化类"],"reason":"橙金、红金、橙黄蓝明亮色系，保持高级福利感。；倒计时翻牌配合礼盒/权益卡，福利内容比装饰更重要。；围绕早鸟、福利即将结束、锁定当前权益、早规划更划算展开。"},"倒计时-涨价":{"recommended_styles":["红橙警示行动感"],"recommended_layouts":["中轴聚焦式"],"recommended_elements":["时间紧迫类","成交转化类","质感氛围类"],"reason":"红橙金强提醒，最后节点可用黑红金但要保持专业。；超大倒计时数字配价格箭头/价格锁，CTA紧跟锁价动作。；围绕涨价前锁定、当前权益保留、价格窗口变化展开。"}},"ratio_adaptation_fragments":{"9:16":{"orientation":"竖版海报","suitable_channel":"中轴聚焦式、上下分层式、公告通知式、超大数字倒计时式、权益堆叠式、流程路径式；朋友圈、销售私聊、社群转发；朋友圈、销售私聊、社群转发","composition_rule":"采用纵向阅读动线，主标题在上方，核心视觉在中部，CTA在底部。","text_density_rule":"正常文字承载，但仍需遵守文字锁定区和短文案规则。","prompt_fragment":"生图比例为9:16，竖版海报；适用渠道：中轴聚焦式、上下分层式、公告通知式、超大数字倒计时式、权益堆叠式、流程路径式；朋友圈、销售私聊、社群转发；朋友圈、销售私聊、社群转发；采用纵向阅读动线，主标题在上方，核心视觉在中部，CTA在底部。；正常文字承载，但仍需遵守文字锁定区和短文案规则。；使用默认 。；CTA位置：底部居中或底部按钮区"},"16:9":{"orientation":"横版海报","suitable_channel":"左右对比式、公告通知式、上下分层式；社群横图、直播封面、视频封面、课程介绍横幅；社群横图、直播封面、视频封面","composition_rule":"采用横向分区或左右对比，避免堆叠过多纵向文字。","text_density_rule":"横版空间较宽但高度有限，减少纵向文字层级，避免多行小字。","prompt_fragment":"生图比例为16:9，横版海报；适用渠道：左右对比式、公告通知式、上下分层式；社群横图、直播封面、视频封面、课程介绍横幅；社群横图、直播封面、视频封面；采用横向分区或左右对比，避免堆叠过多纵向文字。；横版空间较宽但高度有限，减少纵向文字层级，避免多行小字。；强制减少纵向模块堆叠，优先使用 2-3 个横向模块。；CTA位置：右侧或右下角"},"1:1":{"orientation":"方形海报","suitable_channel":"中轴聚焦式、公告通知式、卡片矩阵式；社群卡片、朋友圈九宫格、单一活动提醒；社群卡片、朋友圈九宫格","composition_rule":"采用中心聚焦，减少文字区块，突出一个核心信息。","text_density_rule":"方图文字容量更低，必须减少卖点数量和小字。","prompt_fragment":"生图比例为1:1，方形海报；适用渠道：中轴聚焦式、公告通知式、卡片矩阵式；社群卡片、朋友圈九宫格、单一活动提醒；社群卡片、朋友圈九宫格；采用中心聚焦，减少文字区块，突出一个核心信息。；方图文字容量更低，必须减少卖点数量和小字。；max_visible_modules 通常减少 1 个，最低保留 2 个核心模块。；CTA位置：底部短按钮或中心下方"}},"text_rendering_prompt_fragment":"中文文字清晰要求：；文字数量要可控，文案层级要清晰，不允许把过多文字塞进画面。；所有要出现在海报上的中文必须由系统明确列出。；提示词中必须把画面设计和文字内容分离描述。；不允许让生图模型自由发挥文案、添加伪文字或背景小字。；宁愿文字更少、更准、更清楚，也不要信息堆满导致中文乱码。；不要改写文字。；不要新增文字。；不要生成伪文字。；不要生成乱码。；不要生成错别字。；不要生成重复字。；不要在背景中塞入额外小字。；不要使用复杂艺术字、草书、异形字体。；文字模块之间保留充足留白。；小字区域减少，核心信息放大。；中文清晰可读；不要伪文字；不要乱码；不要错别字；不要重复字；不要密集小字；不要背景额外小字；不要新增海报文案；只使用文字锁定区内容","text_stability_rules":{"mode":"single_pass_text_safe","do_not_split_background_and_text":true,"visible_text_modules_limit":6,"benefit_line_limit":3,"benefit_max_chars":12,"subtitle_max_chars":18,"cta_max_chars":14,"forbid_extra_text":true,"forbid_small_text":true,"forbid_perspective_text":true,"prefer_front_facing_text":true,"prefer_clean_text_panels":true,"prompt_fragment":"海报上只允许出现文字锁定区中的文字。不要新增任何背景小字、装饰小字、角标小字、英文乱码。如果无法准确生成小字，请宁可不生成小字，也不要生成错误文字。所有文字必须正向、水平、清晰，不要透视变形。卖点卡片只放一行短句，不要扩写成段落。文字承载区域使用干净底板、高对比、足够留白。不要使用斜切卡片承载正文。不要在复杂高光、强纹理、金属反射上直接放小字。主标题、副标题、卖点、CTA必须层级清晰。总文字模块控制在5-6个以内。"},"safety_prompt_fragment":"禁止生成未提供的日期、时间、价格、名额、报名人数、倒计时数字。；禁止绝对化结果承诺：保证提分、必涨分、必涨30分、稳上一本、冲刺985、确保录取、一定逆袭、包过、必拿满分、稳提分、100%录取、逆袭高分；禁止真实背书素材：荣誉证书、学员反馈截图、老师人物照片、清北老师照片、学员好评截图、真实学员头像、真实老师头像、学员人物照片、老师照片、学员照片、微信聊天截图、报名截图、成绩单、聊天记录截图、奖状、录取通知书、合同截图、支付截图、真实头像、证书、截图、照片；禁止生成二维码、电话、虚构机构地址、虚构老师姓名。；禁止自行增加促销信息。","negative_prompt_terms":["乱码","伪文字","错别字","重复字","密集小字","英文乱码","拼音乱码","无意义文字","水印","二维码","虚构电话","虚构地址","聊天截图","支付截图","报名截图","证书","奖状","老师照片","学员照片","真实头像","成绩单","录取通知书","合同截图","过度装饰","画面拥挤","元素堆砌","低清晰度","文字变形","虚构价格","虚构名额","虚构倒计时","绝对化提分承诺"],"prompt_section_contract":["【基础画面规格】","【海报用途】","【整体视觉策略】","【布局结构设计】","【高级元素设计】","【海报文字内容锁定区】","【中文文字清晰要求】","【比例适配要求】","【安全与合规要求】","【负向提示词】"],"fallback_used":[]};
+    const AUTO_RECOMMEND = "自动推荐";
+    const DETAIL_UNSPECIFIED = "未指定，按所选分类轻量生成";
+    const CATEGORY_LIGHT_GENERATE = "具体元素：未指定，按所选分类轻量生成。";
+    const timeRequiredScenes = new Set(["涨价", "封班", "开课/服务开启", "倒计时", "倒计时-封班", "倒计时-开课", "倒计时-早鸟优惠", "倒计时-涨价"]);
+    const endorsementWords = ["荣誉证书", "学员反馈截图", "老师人物照片", "聊天记录", "支付截图", "成绩单", "录取通知书", "真实头像", "证书", "截图", "照片"];
+    const defaultBenefits = ["系统梳理重点内容", "配套学习节奏规划", "老师跟进学习反馈"];
+    const fallbackNegativeTerms = ["乱码", "伪文字", "错别字", "重复字", "密集小字", "英文乱码", "水印", "二维码", "虚构电话", "虚构地址", "聊天截图", "支付截图", "证书", "奖状", "老师照片", "学员照片", "真实头像", "成绩单", "录取通知书", "过度装饰", "画面拥挤", "元素堆砌", "低清晰度", "文字变形"];
+
+    const $ = (selector) => document.querySelector(selector);
+    const $$ = (selector) => Array.from(document.querySelectorAll(selector));
+
+    function cleanLine(value) {
+      return value.replace(/^[\s\-•、，。；:：]+|[\s\-•、，。；:：]+$/g, "").trim();
+    }
+
+    function parseBenefits(value) {
+      return value.split(/\r?\n/).map(cleanLine).filter(Boolean);
+    }
+
+    function normalizeBenefitLines(benefitsText) {
+      // 不限制卖点条数：销售填多少条就保留多少条；只有完全为空时才用默认卖点兜底。
+      const lines = parseBenefits(benefitsText);
+      if (lines.length) return lines;
+      const fallback = Array.isArray(PROMPT_FRAGMENT_BUNDLE.default_benefits) ? PROMPT_FRAGMENT_BUNDLE.default_benefits : defaultBenefits;
+      return fallback.slice();
+    }
+
+    function getSelectedElements() {
+      const checked = $$("input[name='element_preference']:checked").map((item) => item.value);
+      return checked.length ? checked : [AUTO_RECOMMEND];
+    }
+
+    function getSelectedElementCategories() {
+      return getSelectedElements().filter((item) => item !== AUTO_RECOMMEND);
+    }
+
+    function getDetailElementPreference() {
+      const detailPreference = {};
+      $$("#detailElementGroups .detail-chip.selected").forEach((chip) => {
+        const group = chip.dataset.group;
+        const name = chip.dataset.name;
+        if (!group || !name) return;
+        if (!detailPreference[group]) detailPreference[group] = [];
+        detailPreference[group].push(name);
+      });
+      return detailPreference;
+    }
+
+    function getSelectedDetailCount(salesInput) {
+      const preference = salesInput?.detail_element_preference || getDetailElementPreference();
+      return Object.values(preference).reduce((total, list) => total + (Array.isArray(list) ? list.length : 0), 0);
+    }
+
+    const PROMPT_PROFILES = {
+      balanced_design: { label: "通用设计版", desc: "保留设计感，兼顾文字可读性（默认）。" },
+      doubao_text_safe: { label: "豆包稳字版", desc: "更保守，适合文字能力较弱的模型，优先防止小字乱码。" },
+      image2_rich_design: { label: "image2丰富版", desc: "允许更完整信息层级与更高级版式，适合文字能力更好的模型。" }
+    };
+    const DEFAULT_PROFILE = "balanced_design";
+    let currentProfile = DEFAULT_PROFILE;
+
+    function resolvePromptProfile() {
+      return PROMPT_PROFILES[currentProfile] ? currentProfile : DEFAULT_PROFILE;
+    }
+
+    function getSalesInput() {
+      const benefitsText = $("#benefits").value;
+      return {
+        business_scene: $("#business_scene").value.trim(),
+        product_name: $("#product_name").value.trim(),
+        activity_info: $("#activity_info").value.trim(),
+        time_info: $("#time_info").value.trim(),
+        quota_info: $("#quota_info").value.trim(),
+        benefits: parseBenefits(benefitsText),
+        benefitsText,
+        style_preference: $("#style_preference").value || AUTO_RECOMMEND,
+        layout_preference: $("#layout_preference").value || AUTO_RECOMMEND,
+        element_preference: getSelectedElements(),
+        detail_element_preference: getDetailElementPreference(),
+        image_ratio: $("input[name='image_ratio']:checked")?.value || "9:16",
+        output_profile: resolvePromptProfile()
+      };
+    }
+
+    function readSalesInput() { return getSalesInput(); }
+
+    function selectedDetailNames(salesInput) {
+      return Object.values(salesInput.detail_element_preference || {}).flat().filter(Boolean);
+    }
+
+    function validateSalesInput(salesInput) {
+      const errors = [];
+      const warnings = [];
+      const needsModify = [];
+      const detailNames = selectedDetailNames(salesInput);
+      if (!salesInput.business_scene) errors.push("请选择业务场景。");
+      if (!salesInput.product_name) errors.push("请填写产品名称 / 班型名称。");
+      if (timeRequiredScenes.has(salesInput.business_scene) && !salesInput.time_info) errors.push("当前业务场景需要填写时间信息，否则海报提示词可能不准确。");
+      if (salesInput.business_scene === "名额截杀/满班率" && !salesInput.quota_info) errors.push("名额截杀/满班率场景需要填写名额、满班率或进度信息。");
+      // 卖点条数、卖点字数、高级元素与具体元素数量均不再限制，选多了也不影响生成与复制。
+      const detailText = detailNames.join("、");
+      if (endorsementWords.some((word) => salesInput.benefitsText.includes(word) || detailText.includes(word))) needsModify.push("请不要要求生图模型生成证书、截图、真人照片等真实背书素材。如需使用真实素材，需要由用户自行提供。");
+      return { errors, warnings, needsModify };
+    }
+
+    function getFirstAvailable(items, map, fallback) {
+      const list = Array.isArray(items) ? items : [];
+      return list.find((item) => map && map[item]) || Object.keys(map || {})[0] || fallback;
+    }
+
+    function pickAutoDetailElements(resolvedElements, detailCatalog) {
+      const picked = {};
+      let total = 0;
+      resolvedElements.forEach((group) => {
+        const candidates = detailCatalog[group] || [];
+        const quota = total < 2 ? 2 : 1;
+        const names = candidates.slice(0, quota).map((item) => item.name).filter(Boolean);
+        if (names.length) {
+          picked[group] = names;
+          total += names.length;
+        }
+      });
+      if (total < 3) {
+        resolvedElements.forEach((group) => {
+          if (total >= 3) return;
+          const current = picked[group] || [];
+          const next = (detailCatalog[group] || []).map((item) => item.name).find((name) => name && !current.includes(name));
+          if (next) {
+            picked[group] = current.concat(next);
+            total += 1;
+          }
+        });
+      }
+      while (Object.values(picked).flat().length > 5) {
+        const lastGroup = Object.keys(picked).reverse().find((group) => picked[group].length > 1) || Object.keys(picked).reverse()[0];
+        if (!lastGroup) break;
+        picked[lastGroup].pop();
+        if (!picked[lastGroup].length) delete picked[lastGroup];
+      }
+      return picked;
+    }
+
+    function resolveDetailElements(salesInput, resolvedElements, elementAuto, detailCatalog) {
+      const byGroup = {};
+      if (elementAuto) {
+        const autoPicked = pickAutoDetailElements(resolvedElements, detailCatalog);
+        resolvedElements.forEach((group) => {
+          byGroup[group] = autoPicked[group] || [];
+        });
+        return { byGroup, mode: "自动推荐已解析", summary: "自动推荐，系统按规则轻量选择" };
+      }
+      resolvedElements.forEach((group) => {
+        const selected = salesInput.detail_element_preference?.[group] || [];
+        const allowed = new Set((detailCatalog[group] || []).map((item) => item.name));
+        byGroup[group] = selected.filter((name) => allowed.has(name));
+      });
+      const total = Object.values(byGroup).flat().length;
+      return { byGroup, mode: total ? "用户手动选择" : "用户只选择一级分类", summary: total ? Object.values(byGroup).flat().join("、") : "未指定，按所选分类轻量生成" };
+    }
+
+    function resolvePromptFragmentPlan(salesInput) {
+      const bundle = PROMPT_FRAGMENT_BUNDLE;
+      const recommendation = bundle.scene_to_visual_recommendation?.[salesInput.business_scene] || {};
+      const styleMap = bundle.visual_style_fragments || {};
+      const layoutMap = bundle.layout_fragments || {};
+      const elementMap = bundle.advanced_element_fragments || {};
+      const detailCatalog = bundle.advanced_element_detail_catalog || {};
+      const styleAuto = salesInput.style_preference === AUTO_RECOMMEND;
+      const layoutAuto = salesInput.layout_preference === AUTO_RECOMMEND;
+      const elementAuto = salesInput.element_preference.includes(AUTO_RECOMMEND);
+      const resolvedStyle = styleAuto ? getFirstAvailable(recommendation.recommended_styles, styleMap, "蓝橙专业服务感") : salesInput.style_preference;
+      const resolvedLayout = layoutAuto ? getFirstAvailable(recommendation.recommended_layouts, layoutMap, "中轴聚焦式") : salesInput.layout_preference;
+      let resolvedElements = elementAuto
+        ? (Array.isArray(recommendation.recommended_elements) ? recommendation.recommended_elements.filter((item) => elementMap[item]) : [])
+        : salesInput.element_preference.filter((item) => item !== AUTO_RECOMMEND && elementMap[item]);
+      if (!resolvedElements.length) resolvedElements = Object.keys(elementMap).slice(0, 2);
+      const detailPlan = resolveDetailElements(salesInput, resolvedElements, elementAuto, detailCatalog);
+      const resolvedDetailElements = detailPlan.byGroup;
+      const detailElementFragments = Object.entries(resolvedDetailElements).flatMap(([group, names]) => {
+        const catalog = detailCatalog[group] || [];
+        return names.map((name) => ({ group, name, fragment: catalog.find((item) => item.name === name) || { name } }));
+      });
+      return {
+        resolvedStyle,
+        resolvedLayout,
+        resolvedElements,
+        resolvedDetailElements,
+        detailElementFragments,
+        detailSelectionMode: detailPlan.mode,
+        detailSummary: detailPlan.summary,
+        styleChoiceMode: styleAuto ? "自动推荐已解析" : "用户手动选择",
+        layoutChoiceMode: layoutAuto ? "自动推荐已解析" : "用户手动选择",
+        elementChoiceMode: elementAuto ? "自动推荐已解析" : "用户手动选择",
+        styleFragment: styleMap[resolvedStyle] || {},
+        layoutFragment: layoutMap[resolvedLayout] || {},
+        elementFragments: resolvedElements.map((name) => ({ name, fragment: elementMap[name] || {} })),
+        ratioFragment: bundle.ratio_adaptation_fragments?.[salesInput.image_ratio] || {},
+        textRenderingFragment: bundle.text_rendering_prompt_fragment || "中文必须清晰可读，不要伪文字、乱码、错别字、重复字、密集小字，不要背景额外小字，不要新增海报文案，只使用文字锁定区内容。",
+        safetyFragment: bundle.safety_prompt_fragment || "禁止生成未提供的日期、时间、价格、名额、报名人数、倒计时数字。禁止绝对化结果承诺。禁止真实背书素材。禁止生成二维码、电话、虚构机构地址、虚构老师姓名。禁止自行增加促销信息。",
+        negativePromptTerms: Array.isArray(bundle.negative_prompt_terms) && bundle.negative_prompt_terms.length ? bundle.negative_prompt_terms : fallbackNegativeTerms,
+        recommendationNote: recommendation.reason || "按当前业务场景选择稳妥的销售转化视觉方案。"
+      };
+    }
+
+
+    function countTextChars(value) {
+      return Array.from(String(value || "").replace(/\s+/g, "")).length;
+    }
+
+    function simplifyPosterLine(value, maxChars) {
+      let text = cleanLine(String(value || ""))
+        .replace(/[（(][^）)]*[）)]/g, "")
+        .replace(/[，,。；;！!？?、：:]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      const chars = Array.from(text);
+      return chars.length > maxChars ? chars.slice(0, maxChars).join("") : text;
+    }
+
+    function normalizePosterTextForImageModel(copy, salesInput) {
+      const rules = PROMPT_FRAGMENT_BUNDLE.text_stability_rules || {};
+      const title = cleanLine(copy.title || salesInput.product_name || "");
+      const titleLayoutInstruction = countTextChars(title) > 16 ? "主标题较长，请拆成两行大字排版，不要缩小成小字。" : "主标题使用正向大字，保持清晰完整。";
+      const subtitle = simplifyPosterLine(copy.subtitle || "", rules.subtitle_max_chars || 18);
+      // 卖点不再截断条数或字数：销售填写的每条卖点原样进入文字锁定区。
+      const benefits = normalizeBenefitLines(salesInput.benefitsText).map(cleanLine).filter(Boolean);
+      const cta = simplifyPosterLine(copy.cta || "", rules.cta_max_chars || 14);
+      return { title, titleLayoutInstruction, subtitle, benefits, cta };
+    }
+
+    function calculateTextRenderRisk(salesInput, plan, normalizedCopy) {
+      const riskReasons = [];
+      const promptConstraints = [];
+      const textModuleCount = 1 + (normalizedCopy.subtitle ? 1 : 0) + normalizedCopy.benefits.length + (normalizedCopy.cta ? 1 : 0);
+      const hasEndorsementRisk = endorsementWords.some((word) => salesInput.benefitsText.includes(word) || selectedDetailNames(salesInput).join("、").includes(word));
+      const layout = plan.resolvedLayout || "";
+      const style = plan.resolvedStyle || "";
+      // 卖点条数、卖点字数、高级元素与具体元素数量均不再作为文字风险或拦截项，销售可自由选择；
+      // 仅对系统生成文案过长（副标题/CTA）做轻提示，并对真实背书素材等合规问题做高风险拦截。
+      if (countTextChars(normalizedCopy.subtitle) > 18) riskReasons.push("副标题较长");
+      if (countTextChars(normalizedCopy.cta) > 14) riskReasons.push("CTA较长");
+      if (hasEndorsementRisk) riskReasons.push("包含截图、证书、成绩单或真实头像等真实背书素材词");
+
+      if (layout === "卡片矩阵式") promptConstraints.push("卡片之间保持清晰间距，每张卡片文字层级分明，避免卡片内小字堆叠。");
+      if (layout === "流程路径式") promptConstraints.push("流程节点标签清晰，节点说明保持简短，避免流程说明挤成小字。");
+      if (layout === "左右对比式") promptConstraints.push("左右两侧文字层级分明，对照信息保持大字短句，避免多行小字对照表。");
+      if (style === "黑金高端压迫感") promptConstraints.push("黑金质感用于背景和标题氛围，正文卖点放在干净承载区上，避免黑底金色小字。");
+      if (salesInput.image_ratio === "1:1") promptConstraints.push("1:1方图注意文字与元素的留白与层次，保证核心文字清晰。");
+
+      let riskLevel = "low";
+      if (riskReasons.length) riskLevel = "medium";
+      if (hasEndorsementRisk) riskLevel = "high";
+      return { risk_level: riskLevel, risk_reasons: riskReasons, prompt_constraints: promptConstraints, text_module_count: textModuleCount };
+    }
+
+    function buildTextStabilityPromptSection(salesInput, plan, normalizedCopy, textRisk) {
+      const fragment = PROMPT_FRAGMENT_BUNDLE.text_stability_rules?.prompt_fragment || "海报上只允许出现文字锁定区中的文字，不要新增背景小字或伪文字。";
+      return `【中文文字渲染优先规则】
+请优先保证海报中的中文文字清晰、准确、完整。
+海报上只允许出现【海报文字内容锁定区】中的文字。
+不要改写、扩写、缩写、翻译或新增任何文字。
+不要生成伪文字、乱码、错别字、重复字、英文乱码。
+不要在背景、装饰区域、卡片边角、按钮阴影里加入额外小字。
+如果无法准确生成额外小字，请不要生成额外小字。
+如果无法同时保证所有小字准确，请优先保证主标题、关键节点、3条卖点和CTA准确。
+每条卖点必须是一行短句，不要扩写成段落。
+不要生成项目符号小段落，不要生成小号解释文字。
+${fragment}
+文字风险等级：${textRisk.risk_level}`;
+    }
+
+    function buildTextDensityControlSection(salesInput, normalizedCopy, textRisk) {
+      return `【海报文字密度控制】
+本海报只保留以下核心文字模块：主标题、副标题或节点信息、最多3条核心卖点、1条CTA。
+不要额外新增说明段落。
+不要生成项目符号小段落。
+不要生成背景小字。
+不要生成装饰性英文。
+不要把卖点扩写成两行以上。
+总文字模块控制在5-6个以内。
+当前锁定文字模块数量：${textRisk.text_module_count}个。
+如果画面空间不足，优先减少装饰元素，不要压缩文字字号。`;
+    }
+
+    function buildTextPanelSafetySection(salesInput, plan, textRisk) {
+      return `【文字承载区安全要求】
+所有正文文字必须放在正向、平放、干净的文字承载区内。
+卖点卡片优先使用规则矩形或圆角矩形。
+文字承载区背景必须干净、高对比、留白充足。
+不要让正文文字压在复杂纹理、强光效、金属反射、密集粒子、渐变交界处。
+不要使用斜切卡片、透视卡片、弯曲路径承载正文。
+不要让文字跟随纸张翻角、弯曲飘带、透视舞台发生变形。
+主标题可以有轻微描边或阴影，但不要过度金属化导致笔画不清。
+CTA按钮文字必须水平居中、字形完整、边缘清晰。`;
+    }
+
+    function buildLayoutTextRiskDowngrade(plan, textRisk) {
+      const constraints = textRisk.prompt_constraints || [];
+      const body = constraints.length ? constraints.map((item) => `- ${item}`).join("\n") : "- 当前文字风险较低，保持单次生图，继续优先保证文字锁定区清晰准确。";
+      return `【高风险文字场景降级要求】
+${body}
+降级原则：减少装饰和次要卡片，不减少主标题、核心卖点和CTA的字号；保持单次生成一张完整海报，不增加销售操作步骤。`;
+    }
+
+    function buildMockSafetySummary(validationResult, textRisk = { risk_level: "low", risk_reasons: [], prompt_constraints: [] }) {
+      const textRiskWarnings = [];
+      const textRiskNeedsModify = [];
+      if (textRisk.risk_level === "medium") textRiskWarnings.push("文字内容较多，已自动加入文字稳定规则。建议减少卖点或装饰元素，避免豆包生成乱码。");
+      if (textRisk.risk_level === "high") textRiskNeedsModify.push("当前内容容易导致文字乱码或生成不合规素材，建议减少文字和具体元素后再复制。");
+      const allNeedsModify = validationResult.needsModify.concat(textRiskNeedsModify);
+      const allWarnings = validationResult.warnings.concat(textRiskWarnings);
+      if (validationResult.errors.length) return { key: "blocked", status_label: "已阻断", summary_message: "请先补全必要信息，再生成可复制提示词。", safe_to_copy: false, visible_warnings_for_sales: validationResult.errors.concat(allWarnings, allNeedsModify) };
+      if (allNeedsModify.length) return { key: "modify", status_label: "需要修改", summary_message: "当前内容可能导致文字乱码、画面拥挤或生成不合规素材，建议调整后再复制。", safe_to_copy: false, visible_warnings_for_sales: allNeedsModify.concat(allWarnings) };
+      if (allWarnings.length) return { key: "check", status_label: "建议检查", summary_message: "当前提示词可以使用，但建议检查卖点数量、文字密度和画面元素，避免海报信息过密。", safe_to_copy: true, visible_warnings_for_sales: allWarnings };
+      return { key: "ready", status_label: "可直接复制", summary_message: "当前信息完整，文字稳定策略已开启，提示词可复制到豆包 / 即梦 / 可灵使用。", safe_to_copy: true, visible_warnings_for_sales: [] };
+    }
+
+    function getRatioMeta(ratio, ratioFragment = {}) {
+      const fallback = { "9:16": { direction: "竖版手机海报", usage: "适合朋友圈、销售私聊、社群转发" }, "16:9": { direction: "横版宽屏海报", usage: "适合社群横图、直播封面、视频封面" }, "1:1": { direction: "方形卡片海报", usage: "适合社群卡片、朋友圈九宫格" } };
+      const base = fallback[ratio] || fallback["9:16"];
+      return { direction: ratioFragment.orientation || base.direction, usage: ratioFragment.suitable_channel || base.usage };
+    }
+
+    function buildSceneCopy(salesInput) {
+      const product = salesInput.product_name || "课程班型";
+      const sceneInfo = PROMPT_FRAGMENT_BUNDLE.business_scene_fragments?.[salesInput.business_scene] || {};
+      const byScene = {
+        "开售": { title: `${product} 正式开售`, subtitle: salesInput.activity_info || "系统规划学习节奏，提前锁定新阶段学习安排", cta: "现在咨询，了解班型详情" },
+        "涨价": { title: "涨价节点临近", subtitle: salesInput.time_info || "请关注本次价格调整节点", cta: "提前确认报名权益，避免错过当前安排" },
+        "封班": { title: "封班提醒", subtitle: salesInput.time_info || "本轮班型即将截止报名", cta: "尽快确认报名安排" },
+        "开课/服务开启": { title: "课程服务即将开启", subtitle: salesInput.time_info || "提前做好学习准备", cta: "确认上课安排，跟上学习节奏" },
+        "补录返场": { title: "补录返场开放", subtitle: salesInput.activity_info || "本轮适合错过前期报名的学生和家长关注", cta: "查看补录规则，确认是否适合" },
+        "倒计时": { title: "报名倒计时", subtitle: salesInput.time_info || "请关注本轮报名截止节点", cta: "抓紧确认，减少临近截止的决策压力" },
+        "名额截杀/满班率": { title: "名额进度提醒", subtitle: salesInput.quota_info || "请关注本轮名额进度", cta: "尽快确认剩余名额与报名安排" },
+        "倒计时-封班": { title: "封班倒计时", subtitle: salesInput.time_info || "请关注本轮封班节点", cta: "确认是否赶上本轮报名" },
+        "倒计时-开课": { title: "开课倒计时", subtitle: salesInput.time_info || "请关注本轮开课节点", cta: "提前准备，按时进入学习节奏" },
+        "倒计时-早鸟优惠": { title: "早鸟优惠倒计时", subtitle: salesInput.time_info || "请关注本轮优惠节点", cta: "及时确认权益，避免错过优惠节点" },
+        "倒计时-涨价": { title: "涨价倒计时", subtitle: salesInput.time_info || "请关注本轮价格调整节点", cta: "提前锁定当前报名权益" }
+      };
+      const copy = byScene[salesInput.business_scene] || { title: `${product} 报名提醒`, subtitle: "请结合学生当前学习安排理性确认", cta: "咨询班型详情，确认是否适合" };
+      if (!copy.cta && sceneInfo.cta_direction) copy.cta = sceneInfo.cta_direction.split(/[、；/]/)[0];
+      return copy;
+    }
+
+    function composeFragment(fragment, fallbackParts = []) {
+      if (fragment.prompt_fragment) return fragment.prompt_fragment;
+      return fallbackParts.filter(Boolean).join("；");
+    }
+
+    function formatDetailLine(group, names) {
+      return names && names.length ? names.join("、") : DETAIL_UNSPECIFIED;
+    }
+
+    const SECONDARY_NOTE_RULES = [
+      { test: /重点|梳理|考点|主线/, note: "抓住学习主线" },
+      { test: /节奏|规划|计划|安排|时间轴/, note: "学习安排更清晰" },
+      { test: /老师|跟进|反馈|答疑|辅导|批改/, note: "及时了解学习状态" },
+      { test: /资料|讲义|配套|题库/, note: "配套资源更省心" },
+      { test: /体系|系统|框架/, note: "知识更成体系" },
+      { test: /直播|录播|课程|上课/, note: "跟上学习节奏" },
+      { test: /服务|陪伴|社群|督学/, note: "学习过程更安心" }
+    ];
+
+    function buildSecondaryNotes(benefits, profile) {
+      // 仅 balanced_design / image2_rich_design 生成简短二级说明；doubao 稳字版不使用。
+      if (profile === "doubao_text_safe") return benefits.map(() => "");
+      return benefits.map((benefit) => {
+        const matched = SECONDARY_NOTE_RULES.find((rule) => rule.test.test(benefit));
+        const note = matched ? matched.note : "助力学习更安心";
+        return Array.from(note).slice(0, 14).join("");
+      });
+    }
+
+    function buildDesignLanguageExecutionSection(salesInput, plan) {
+      const style = plan.styleFragment || {};
+      const layout = plan.layoutFragment || {};
+      const colorLanguage = style.color_language || "围绕当前色系统一主色、辅助色与氛围";
+      const backgroundLanguage = style.background_language || style.texture_language || "背景与质感服务主标题和关键信息";
+      const composition = layout.composition || layout.definition || "围绕主视觉组织画面，分清主次模块";
+      const hierarchy = layout.information_hierarchy || "主标题 -> 关键节点 -> 核心卖点 -> 行动提示";
+      const moduleArrangement = layout.module_arrangement || "控制模块数量，让版面有主次和呼吸感";
+      const elementLanguage = (plan.elementFragments || []).map((item) => {
+        const detailNames = (plan.resolvedDetailElements[item.name] || []);
+        const detailText = detailNames.length ? `（如${detailNames.slice(0, 3).join("、")}）` : "";
+        return `${item.name}${detailText}`;
+      }).join("、") || "按所选高级元素分类轻量增强画面";
+      const avoidParts = []
+        .concat(Array.isArray(style.avoid) ? style.avoid : [])
+        .concat(Array.isArray(layout.avoid) ? layout.avoid : [])
+        .filter(Boolean);
+      const avoidText = avoidParts.length ? avoidParts.join("；") : "避免把画面做成普通PPT页面或官网长图";
+      return `【设计语言执行区】
+请按照以下设计语言组织整张海报，不要只理解为抽象风格词，而要落实为具体的版面表现。
+
+视觉语言：
+围绕「${plan.resolvedStyle}」展开。${style.definition || "用色彩与质感强化当前业务场景的转化氛围。"}主色与氛围：${colorLanguage}。背景与质感：${backgroundLanguage}。让色彩、光影、质感服务主标题和关键信息，营造对应转化氛围，但不要做成廉价促销底。
+
+布局语言：
+采用「${plan.resolvedLayout}」组织画面。${composition}信息层级：${hierarchy}。模块安排：${moduleArrangement}。版面要有明确主次和呼吸感，主视觉、标题、卖点、CTA之间形成强弱对比，不要所有模块平均铺满。
+
+阅读动线：
+${hierarchy}。第一眼锁定主标题与视觉锚点，第二眼看到产品与核心卖点，最后落在CTA。
+
+元素语言：
+当前可用元素：${elementLanguage}。高级元素应形成层次，作为主视觉锚点或辅助节点服务整体设计，礼盒等可作为主视觉，闹钟、日历等可作为辅助节点元素，不要平均堆满画面。
+
+避免方向：
+${avoidText}。`;
+    }
+
+    function buildRoleBasedTextDesignSection(salesInput, plan, profile) {
+      const benefitProfileNote = profile === "doubao_text_safe"
+        ? "当前为豆包稳字版：核心卖点以单行短句为主，尽量不加二级说明。"
+        : profile === "image2_rich_design"
+          ? "当前为image2丰富版：允许主卖点 + 简短二级说明的更完整层级（二级说明已写入锁定区）。"
+          : "当前为通用设计版：每条卖点可配一句简短二级说明（由系统生成，已写入锁定区）。";
+      return `【文字角色化设计规则】
+不同文字承担不同角色，请按角色选择最合适的设计表现，不要把所有文字压成同一种平铺排版。
+
+A. 主标题：允许大字号、强对比、轻描边、轻阴影、适度立体或渐变以制造视觉冲击；与「${plan.resolvedStyle}」统一，但必须保持清晰可读、不影响识别。
+B. 副标题 / 关键节点：可使用提醒条、标签、横条、票券或次级标题区承载，强度弱于主标题、强于正文。
+C. 关键数字 / 名额 / 进度：可作为画面视觉锚点，允许超大数字、立体数字、票券数字、印章式强调或进度感表达；只能使用锁定区已提供的数字，不要编造。
+D. 核心卖点：根据「${plan.resolvedLayout}」选择承载方式，可使用权益卡、圆角卡、胶囊条、票券卡、标签块、轻堆叠卡、公告条、路径节点或信息横条，不强制规则矩形平铺。${benefitProfileNote}
+E. CTA：保留强设计感，可使用胶囊按钮、渐变按钮、高光按钮、票券按钮或行动条，突出点击与转化感，文字清晰居中。`;
+    }
+
+    function buildProfileAwareTextRules(profile, textRisk, salesInput, plan, safeCopy) {
+      const meta = PROMPT_PROFILES[profile] || PROMPT_PROFILES[DEFAULT_PROFILE];
+      let body;
+      if (profile === "doubao_text_safe") {
+        body = `- 文字策略更保守：核心卖点以短句优先，尽量不添加二级说明。
+- 避免复杂小字、多层文字与密集排版，优先保证主标题、关键数字、3条卖点和CTA准确。
+- 仍然保留主标题、关键数字与CTA的设计感，不要把整张海报压成平铺白条模板。
+
+${buildTextStabilityPromptSection(salesInput, plan, safeCopy, textRisk)}
+
+${buildTextDensityControlSection(salesInput, safeCopy, textRisk)}
+
+${buildTextPanelSafetySection(salesInput, plan, textRisk)}
+
+${buildLayoutTextRiskDowngrade(plan, textRisk)}`;
+      } else if (profile === "image2_rich_design") {
+        body = `- 允许更丰富的卡片层级与信息密度，可呈现主卖点 + 简短二级说明。
+- 允许更高级的版式与承载方式，增强信息充实度与高级感。
+- 仍禁止模型自由补充未锁定文字，二级说明必须来自锁定区，不得自行发挥。
+- 核心文字保持清晰可读，装饰化处理不影响识别。`;
+      } else {
+        body = `- 保留设计语言与版式表现，只约束文字本身，不约束画面高级感。
+- 不允许模型自由新增、改写、扩写文案，只能使用锁定区文字。
+- 限制背景小字、装饰英文小字、角标小字，避免乱码与虚构信息。
+- 每条卖点可配一句简短二级说明，但不强制所有卖点只有一行、不强制所有文字平铺。`;
+      }
+      return `【模型适配文字策略】
+当前输出版本：${meta.label}（${profile}）。
+${body}`;
+    }
+
+    function buildPremiumVisualGuardrails(plan) {
+      return `【高级感保护规则】
+不要因为追求文字安全而牺牲整体设计感：
+- 保留「${plan.resolvedStyle}」的高级质感与氛围，不要做成廉价促销底。
+- 版式要有层次和呼吸感，主视觉、标题、卖点、CTA之间形成强弱关系，不要所有模块平均铺满。
+- 高级元素只做有层次的视觉增强，服务主信息，不喧宾夺主，也不被弱化成无意义背景。
+- 不要把所有内容做成普通白底按钮条，不要把画面做成简单PPT页面或官网长图。
+- 在保证核心文字清晰的前提下，优先保留版式变化、视觉张力与设计特色。`;
+    }
+
+    function buildReadabilityProtectionSection() {
+      return `【文字可读性保护规则】
+- 海报只使用【海报文字内容锁定区】中的文字，不自由新增任何文字。
+- 不生成乱码、伪文字、错别字、重复字。
+- 不生成背景小字、装饰英文小字、角标小字。
+- 不生成未提供的日期、时间、价格、名额、报名人数、倒计时数字。
+- 核心文字（主标题、关键数字、卖点、CTA）必须清晰可读，设计化处理不能影响识别。
+- 避免用强透视或严重变形承载长文字；短标签、标题装饰可适度使用设计化形态。`;
+    }
+
+    function buildDetailedFinalPrompt(salesInput, plan, copy, normalizedCopy, textRisk) {
+      const profile = salesInput.output_profile || resolvePromptProfile();
+      const ratio = getRatioMeta(salesInput.image_ratio, plan.ratioFragment);
+      const safeCopy = normalizedCopy || normalizePosterTextForImageModel(copy, salesInput);
+      const safeTextRisk = textRisk || calculateTextRenderRisk(salesInput, plan, safeCopy);
+      const secondaryNotes = buildSecondaryNotes(safeCopy.benefits, profile);
+      const allowSecondary = secondaryNotes.some(Boolean);
+      const benefitLockText = safeCopy.benefits.map((benefit, index) => {
+        const note = secondaryNotes[index];
+        return note ? `${index + 1}. “${benefit}”\n   二级说明：“${note}”` : `${index + 1}. “${benefit}”`;
+      }).join("\n");
+      const styleText = composeFragment(plan.styleFragment, [plan.styleFragment.definition, plan.styleFragment.color_language, plan.styleFragment.background_language, plan.styleFragment.texture_language, plan.styleFragment.typography_language]);
+      const layoutText = composeFragment(plan.layoutFragment, [plan.layoutFragment.definition, plan.layoutFragment.composition, plan.layoutFragment.information_hierarchy, plan.layoutFragment.module_arrangement]);
+      const detailFragmentText = plan.detailElementFragments.length ? plan.detailElementFragments.map((item) => `- ${item.group} / ${item.name}：${item.fragment.prompt_fragment || `在画面中可使用“${item.name}”作为辅助视觉元素，但不要抢占主标题。`}`).join("\n") : "- 未指定具体元素：按所选高级元素分类轻量生成，不要枚举未选择的具体元素。";
+      const elementTexts = plan.elementFragments.map((item) => {
+        const detailNames = plan.resolvedDetailElements[item.name] || [];
+        if (!detailNames.length && plan.detailSelectionMode === "用户只选择一级分类") {
+          const boundary = [item.fragment.usage_rules, Array.isArray(item.fragment.risk_notes) ? item.fragment.risk_notes.join("、") : ""].filter(Boolean).join("；");
+          return `- ${item.name}：按该分类轻量生成，不枚举未选择的具体元素。${boundary ? `使用边界：${boundary}` : ""}\n  本次具体元素：${DETAIL_UNSPECIFIED}`;
+        }
+        return `- ${item.name}：${composeFragment(item.fragment, [item.fragment.definition, Array.isArray(item.fragment.visual_elements) ? item.fragment.visual_elements.join("、") : "", item.fragment.usage_rules, Array.isArray(item.fragment.risk_notes) ? item.fragment.risk_notes.join("、") : ""])}\n  本次具体元素：${formatDetailLine(item.name, detailNames)}`;
+      }).join("\n");
+      const ratioText = plan.ratioFragment.prompt_fragment || [plan.ratioFragment.orientation, plan.ratioFragment.suitable_channel, plan.ratioFragment.composition_rule, plan.ratioFragment.text_density_rule].filter(Boolean).join("；");
+      const activityLine = salesInput.activity_info ? `活动信息：${salesInput.activity_info}` : "活动信息：未填写具体活动，不要自行增加促销信息";
+      const timeLine = salesInput.time_info ? `时间信息：${salesInput.time_info}` : "时间信息：未填写具体时间，不要自行生成日期、时间或倒计时数字";
+      const quotaLine = salesInput.quota_info ? `名额/进度：${salesInput.quota_info}` : "名额/进度：未填写具体名额或进度，不要自行生成剩余名额、满班率或报名人数";
+      const detailTotal = Object.values(plan.resolvedDetailElements || {}).flat().length;
+      const detailChoiceText = detailTotal ? Object.entries(plan.resolvedDetailElements).map(([group, names]) => `${group}：${formatDetailLine(group, names)}`).join("；") : CATEGORY_LIGHT_GENERATE;
+      const textRiskReasonText = safeTextRisk.risk_reasons.length ? safeTextRisk.risk_reasons.join("；") : "当前文字风险较低";
+      return `【基础画面规格】
+生图比例：${salesInput.image_ratio}
+画面方向：${ratio.direction}
+适用场景：${ratio.usage}
+画面清晰度：高清中文营销海报，文字清晰可读，适合销售转发。
+
+【海报用途】
+请生成一张面向高中生家长的中文营销海报，兼顾学生理解。
+业务场景：${salesInput.business_scene}
+产品名称：${salesInput.product_name}
+${activityLine}
+${timeLine}
+${quotaLine}
+
+${buildDesignLanguageExecutionSection(salesInput, plan)}
+
+【整体视觉策略】
+视觉色系：${plan.resolvedStyle}
+选择方式：${plan.styleChoiceMode}
+视觉风格说明：${styleText}
+色彩与氛围要求：围绕${plan.resolvedStyle}展开，主色、辅助色、氛围和质感必须统一。
+背景与质感要求：背景只服务主标题和关键节点，不抢文字，不制造无关装饰。
+适合当前业务场景的原因：${plan.recommendationNote}
+避免方向：${Array.isArray(plan.styleFragment.avoid) ? plan.styleFragment.avoid.join("；") : "避免低端促销感、信息过密和无关视觉元素。"}
+
+【布局结构设计】
+布局结构：${plan.resolvedLayout}
+选择方式：${plan.layoutChoiceMode}
+构图说明：${layoutText}
+信息层级：${plan.layoutFragment.information_hierarchy || "主标题 -> 产品名称/关键节点 -> 核心卖点 -> 行动提示"}
+模块安排：${plan.layoutFragment.module_arrangement || "控制模块数量，让销售转发后用户能快速扫读。"}
+适合当前业务场景的原因：${plan.recommendationNote}
+避免方向：${Array.isArray(plan.layoutFragment.avoid) ? plan.layoutFragment.avoid.join("；") : "避免复杂官网页面、长段落说明和平均用力的模块。"}
+
+【高级元素设计】
+高级元素分类：${plan.resolvedElements.join("、")}
+具体元素选择：${detailChoiceText}
+选择方式：${plan.elementChoiceMode}；具体元素选择方式：${plan.detailSelectionMode}
+元素使用方式：
+${elementTexts}
+具体元素执行说明：
+${detailFragmentText}
+元素层次规则：优先突出最能表达当前业务场景的元素作为视觉锚点，其余元素弱化为辅助层次或背景质感，保持画面有主次和呼吸感，避免喧宾夺主。
+高级元素层次提示：所选元素都可以使用，但要分清主次，让主视觉、标题、卖点、CTA 始终清晰，不要把元素平均堆满画面。
+
+${buildRoleBasedTextDesignSection(salesInput, plan, profile)}
+
+${buildProfileAwareTextRules(profile, safeTextRisk, salesInput, plan, safeCopy)}
+
+${buildPremiumVisualGuardrails(plan)}
+
+【海报文字内容锁定区】
+以下中文文字是海报唯一允许出现的文字内容。
+必须清晰、准确、完整地出现在海报中。
+不要改写，不要新增，不要翻译，不要生成无意义文字。
+不要在这些文字之外增加任何背景小字、英文装饰字或伪文字。
+${allowSecondary ? "二级说明属于锁定文字的一部分，只能使用下方系统生成的二级说明，不要自行扩写或新增说明文字。" : "本版本不输出二级说明，请勿自行补充说明文字。"}
+
+主标题：
+“${safeCopy.title}”
+排版要求：${safeCopy.titleLayoutInstruction}
+
+副标题：
+“${safeCopy.subtitle}”
+
+核心卖点：
+
+${benefitLockText}
+
+行动提示：
+“${safeCopy.cta}”
+
+如果某个字段为空，例如副标题为空，则不要生成该模块，也不要自行补充。
+
+${buildReadabilityProtectionSection()}
+
+【中文文字清晰要求】
+${plan.textRenderingFragment}
+
+【比例适配要求】
+${ratioText}
+
+【画面细节执行要求】
+1. 背景装饰服务主标题，不抢文字。
+2. 所有卡片、标签、按钮、图标都围绕当前业务场景。
+3. 画面第一眼看到主标题和关键节点。
+4. 第二眼看到产品名称和核心卖点。
+5. 第三眼看到行动提示。
+6. 不要做成复杂官网页面。
+7. 不要做成无关节日海报或泛促销海报。
+8. 适合销售私聊、朋友圈、社群转发。
+9. 海报上真实出现的文字要少、短、大、清晰、正向、可读。
+
+【安全与合规要求】
+${plan.safetyFragment}
+文字渲染风险：${safeTextRisk.risk_level}。
+风险原因：${textRiskReasonText}。
+
+【负向提示词】
+${plan.negativePromptTerms.join("、")}`;
+    }
+
+    function mockGeneratePrompt(salesInput) {
+      const validationResult = validateSalesInput(salesInput);
+      const plan = resolvePromptFragmentPlan(salesInput);
+      const copy = buildSceneCopy(salesInput);
+      const normalizedCopy = normalizePosterTextForImageModel(copy, salesInput);
+      const textRisk = calculateTextRenderRisk(salesInput, plan, normalizedCopy);
+      plan.normalizedCopy = normalizedCopy;
+      plan.textRisk = textRisk;
+      const finalPrompt = validationResult.errors.length ? "" : buildDetailedFinalPrompt(salesInput, plan, copy, normalizedCopy, textRisk);
+      const safetySummary = buildMockSafetySummary(validationResult, textRisk);
+      return { finalPrompt, plan, safetySummary, validationResult, normalizedCopy, textRisk };
+    }
+
+    function updateInlineWarnings(validationResult, salesInput) {
+      $("#businessSceneWarning").classList.toggle("show", !salesInput.business_scene);
+      $("#productNameWarning").classList.toggle("show", !salesInput.product_name);
+      $("#timeInfoWarning").classList.toggle("show", timeRequiredScenes.has(salesInput.business_scene) && !salesInput.time_info);
+      $("#quotaInfoWarning").classList.toggle("show", salesInput.business_scene === "名额截杀/满班率" && !salesInput.quota_info);
+      $("#materialWarning").classList.toggle("show", endorsementWords.some((word) => salesInput.benefitsText.includes(word) || selectedDetailNames(salesInput).join("、").includes(word)));
+    }
+
+    function renderVisualSummary(plan, statusLabel = "已阻断") {
+      $("#summaryStyle").textContent = plan?.resolvedStyle || "待生成";
+      $("#summaryLayout").textContent = plan?.resolvedLayout || "待生成";
+      $("#summaryElements").textContent = plan?.resolvedElements?.length ? plan.resolvedElements.join("、") : "待生成";
+      $("#summaryDetailElements").textContent = plan?.detailSummary || "待生成";
+      const riskLevel = plan?.textRisk?.risk_level || "low";
+      const riskText = riskLevel === "high" ? "文字稳定策略：已开启；文字风险：高，建议修改后再复制" : riskLevel === "medium" ? "文字稳定策略：已开启；文字风险：中，系统文案可适当精简" : "文字稳定策略：已开启；文字风险：低";
+      $("#summaryTextStability").textContent = plan ? riskText : "待生成";
+      $("#summaryMode").textContent = `静态预览，来自既有规则快照，未接入真实策略中台；安全状态：${statusLabel}`;
+    }
+
+    function renderSafetySummary(summary) {
+      const box = $("#safetyStatus");
+      box.className = `status-box ${summary.key}`;
+      $("#statusLabel").textContent = summary.status_label;
+      $("#summaryMessage").textContent = summary.summary_message;
+      const list = $("#visibleWarnings");
+      list.innerHTML = "";
+      summary.visible_warnings_for_sales.forEach((warning) => {
+        const item = document.createElement("li");
+        item.textContent = warning;
+        list.appendChild(item);
+      });
+      $("#copyBtn").disabled = !summary.safe_to_copy || !$("#final_prompt").value.trim();
+    }
+
+    function updateSelectionTags(salesInput, plan) {
+      const container = $("#selectionSummary");
+      if (!container) return;
+      const si = salesInput || getSalesInput();
+      const sceneText = si.business_scene || "待选择";
+      const styleText = plan?.resolvedStyle || si.style_preference || AUTO_RECOMMEND;
+      const layoutText = plan?.resolvedLayout || si.layout_preference || AUTO_RECOMMEND;
+      const elementText = plan?.resolvedElements?.length
+        ? plan.resolvedElements.join("、")
+        : (si.element_preference.filter((item) => item !== AUTO_RECOMMEND).join("、") || AUTO_RECOMMEND);
+      const tags = [
+        { label: "业务场景", value: sceneText, muted: !si.business_scene },
+        { label: "色系", value: styleText, muted: false },
+        { label: "布局", value: layoutText, muted: false },
+        { label: "元素", value: elementText, muted: false }
+      ];
+      container.innerHTML = tags.map((tag) => `<span class="summary-tag${tag.muted ? " muted" : ""}">${tag.label}：<b>${tag.value}</b></span>`).join("");
+    }
+
+    function setGenTime() {
+      const now = new Date();
+      const pad = (n) => String(n).padStart(2, "0");
+      $("#genTime").textContent = `生成时间 ${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    }
+
+    function getGenerationSourceLabel(source) {
+      if (source === "python_api") return "Python API";
+      if (source === "static_fallback") return "静态规则 fallback";
+      return "静态规则";
+    }
+
+    function isApiModeEnabled() {
+      const config = HAIBAO_ANALYTICS_GLOBAL.HAIBAO_API_CONFIG || {};
+      return Boolean(config.enabled === true && config.endpoint);
+    }
+
+    function generateStaticPromptResult(salesInput, source = "static") {
+      const result = mockGeneratePrompt(salesInput);
+      result.salesInput = salesInput;
+      result.generationSource = source;
+      return result;
+    }
+
+    async function compilePromptViaApi(salesInput) {
+      const config = HAIBAO_ANALYTICS_GLOBAL.HAIBAO_API_CONFIG || {};
+      const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+      const timeoutMs = Number(config.timeoutMs) || 8000;
+      const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+      try {
+        const response = await fetch(config.endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(salesInput),
+          signal: controller ? controller.signal : undefined
+        });
+        const payload = await response.json();
+        if (!response.ok || !payload || payload.ok !== true || !payload.data) {
+          throw new Error("API compile failed");
+        }
+        return payload;
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    }
+
+    function mapApiResultToConsoleResult(apiPayload, salesInput) {
+      const data = apiPayload.data || {};
+      const visualPlan = data.visual_plan || {};
+      return {
+        finalPrompt: data.final_prompt || "",
+        plan: {
+          resolvedStyle: visualPlan.style || "",
+          resolvedLayout: visualPlan.layout || "",
+          resolvedElements: visualPlan.elements || [],
+          detailElements: visualPlan.detail_elements || [],
+          imageRatio: data.image_ratio || visualPlan.image_ratio || "",
+          promptProfile: data.prompt_profile || visualPlan.prompt_profile || currentProfile,
+          negativePromptTerms: fallbackNegativeTerms
+        },
+        safetySummary: data.safety_summary || {
+          status_label: "可复制，来自 Python API",
+          safe_to_copy: true,
+          summary_message: "已通过本地 API 生成 Prompt。",
+          visible_warnings_for_sales: []
+        },
+        validationResult: { errors: [], warnings: apiPayload.warnings || [], needsModify: [] },
+        salesInput,
+        generationSource: "python_api"
+      };
+    }
+
+    function renderResult(result) {
+      $("#final_prompt").value = result.finalPrompt || "";
+      const terms = result.plan?.negativePromptTerms?.length ? result.plan.negativePromptTerms : fallbackNegativeTerms;
+      $("#negativePromptText").textContent = terms.join("、");
+      renderSafetySummary(result.safetySummary);
+      renderVisualSummary(result.plan, result.safetySummary.status_label);
+      $("#summaryMode").textContent = `${getGenerationSourceLabel(result.generationSource)}；安全状态：${result.safetySummary?.status_label || getCurrentSafetyStatus()}`;
+      updateSelectionTags(result.salesInput, result.plan);
+      if (result.finalPrompt) setGenTime();
+    }
+
+    async function generate() {
+      $("#copyMessage").textContent = "";
+      const salesInput = getSalesInput();
+      let result;
+      if (isApiModeEnabled()) {
+        try {
+          const apiPayload = await compilePromptViaApi(salesInput);
+          result = mapApiResultToConsoleResult(apiPayload, salesInput);
+        } catch (error) {
+          result = generateStaticPromptResult(salesInput, "static_fallback");
+        }
+      } else {
+        result = generateStaticPromptResult(salesInput, "static");
+      }
+      updateInlineWarnings(result.validationResult, salesInput);
+      renderResult(result);
+      trackAnalyticsEvent("haibao_prompt_generate_clicked", {
+        ...ANALYTICS_COMMON_PROPS,
+        ...ANALYTICS_METRIC_LABELS.generate_click,
+        ...getAnalyticsSafeInputSummary(),
+        validation_status: result.validationResult?.errors?.length ? "failed" : "pass",
+        safety_status: result.safetySummary?.status_label || getCurrentSafetyStatus(),
+        generation_source: result.generationSource || "static",
+        prompt_length_bucket: getPromptLengthBucket((result.finalPrompt || "").length)
+      });
+    }
+
+    function renderDetailElementGroups() {
+      const container = $("#detailElementGroups");
+      if (!container) return;
+      const selectedGroups = getSelectedElementCategories();
+      const detailCatalog = PROMPT_FRAGMENT_BUNDLE.advanced_element_detail_catalog || {};
+      const existing = getDetailElementPreference();
+      const groupsToRender = selectedGroups.length ? Object.keys(detailCatalog) : [];
+      container.innerHTML = "";
+      if (!groupsToRender.length) return;
+      groupsToRender.forEach((group) => {
+        const details = detailCatalog[group] || [];
+        const panel = document.createElement("div");
+        panel.className = "detail-group";
+        panel.dataset.group = group;
+        const head = document.createElement("div");
+        head.className = "detail-group-head";
+        const isParentSelected = selectedGroups.includes(group);
+        head.innerHTML = `<span>${group}</span><span class="detail-group-note">${isParentSelected ? "可选具体元素" : "点击元素会自动选中分类"}</span>`;
+        const row = document.createElement("div");
+        row.className = "detail-chip-row";
+        if (!details.length) {
+          const empty = document.createElement("div");
+          empty.className = "detail-empty";
+          empty.textContent = "该分类暂无具体元素，生成时将按分类轻量处理。";
+          row.appendChild(empty);
+        }
+        details.forEach((item) => {
+          const chip = document.createElement("button");
+          chip.type = "button";
+          chip.className = "detail-chip";
+          chip.dataset.group = group;
+          chip.dataset.name = item.name;
+          chip.textContent = item.name;
+          if ((existing[group] || []).includes(item.name)) chip.classList.add("selected");
+          row.appendChild(chip);
+        });
+        panel.appendChild(head);
+        panel.appendChild(row);
+        container.appendChild(panel);
+      });
+    }
+
+    function setCategoryChecked(group, checked) {
+      const box = $$("input[name='element_preference']").find((item) => item.value === group);
+      if (box) box.checked = checked;
+    }
+
+    function toggleDetailElement(category, name) {
+      const autoBox = $$("input[name='element_preference']").find((item) => item.value === AUTO_RECOMMEND);
+      if (autoBox) autoBox.checked = false;
+      setCategoryChecked(category, true);
+      renderDetailElementGroups();
+      const chip = $(`#detailElementGroups .detail-chip[data-group="${CSS.escape(category)}"][data-name="${CSS.escape(name)}"]`);
+      if (chip) chip.classList.toggle("selected");
+      const boxes = $$("input[name='element_preference']");
+      if (!boxes.some((item) => item.checked)) {
+        const auto = boxes.find((item) => item.value === AUTO_RECOMMEND);
+        if (auto) auto.checked = true;
+      }
+      const salesInput = getSalesInput();
+      updateInlineWarnings(validateSalesInput(salesInput), salesInput);
+    }
+
+    function syncElementPreference(event) {
+      const target = event.target;
+      if (target.name !== "element_preference") return;
+      const boxes = $$("input[name='element_preference']");
+      const autoBox = boxes.find((item) => item.value === AUTO_RECOMMEND);
+      if (target.value === AUTO_RECOMMEND && target.checked) {
+        boxes.forEach((item) => { if (item !== autoBox) item.checked = false; });
+        $("#detailElementGroups").innerHTML = "";
+      } else if (target.checked) {
+        autoBox.checked = false;
+      } else {
+        $$("#detailElementGroups .detail-chip.selected").forEach((chip) => {
+          if (chip.dataset.group === target.value) chip.classList.remove("selected");
+        });
+      }
+      if (!boxes.some((item) => item.checked)) autoBox.checked = true;
+      renderDetailElementGroups();
+      const salesInput = getSalesInput();
+      updateInlineWarnings(validateSalesInput(salesInput), salesInput);
+    }
+
+    async function copyFinalPrompt() {
+      const finalPrompt = $("#final_prompt").value;
+      if (!finalPrompt.trim() || $("#copyBtn").disabled) return;
+      let copySuccess = false;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) await navigator.clipboard.writeText(finalPrompt);
+        else { $("#final_prompt").select(); document.execCommand("copy"); }
+        copySuccess = true;
+        $("#copyMessage").textContent = "已复制，可粘贴到豆包/即梦/可灵使用";
+      } catch (error) {
+        $("#final_prompt").select();
+        $("#copyMessage").textContent = "已选中结果，请手动复制";
+      } finally {
+        trackAnalyticsEvent("haibao_prompt_copy_clicked", {
+          ...ANALYTICS_COMMON_PROPS,
+          ...ANALYTICS_METRIC_LABELS.copy_click,
+          ...getAnalyticsSafeInputSummary(),
+          copy_success: copySuccess,
+          safety_status: getCurrentSafetyStatus(),
+          prompt_length_bucket: getPromptLengthBucket(finalPrompt.length)
+        });
+      }
+    }
+
+    function setSceneSelected(scene) {
+      $("#business_scene").value = scene || "";
+      $$("#sceneGroup .scene-btn").forEach((btn) => btn.classList.toggle("selected", btn.dataset.scene === scene));
+    }
+
+    function setStyleSelected(style) {
+      $("#style_preference").value = style || AUTO_RECOMMEND;
+      $$("#styleGroup .opt-card").forEach((card) => card.classList.toggle("selected", card.dataset.style === $("#style_preference").value));
+    }
+
+    function setLayoutSelected(layout) {
+      $("#layout_preference").value = layout || AUTO_RECOMMEND;
+      $$("#layoutGroup .opt-card").forEach((card) => card.classList.toggle("selected", card.dataset.layout === $("#layout_preference").value));
+    }
+
+    function afterSelectionChange() {
+      const salesInput = getSalesInput();
+      updateInlineWarnings(validateSalesInput(salesInput), salesInput);
+      updateSelectionTags(salesInput, null);
+    }
+
+    function setProfile(profile) {
+      currentProfile = PROMPT_PROFILES[profile] ? profile : DEFAULT_PROFILE;
+      $$("#profileSwitch .profile-opt").forEach((opt) => opt.classList.toggle("active", opt.dataset.profile === currentProfile));
+      const meta = PROMPT_PROFILES[currentProfile];
+      $("#profileNote").textContent = `输出版本：${meta.label} / ${currentProfile} —— ${meta.desc}`;
+      // 若已有生成结果，按新版本即时重算，不新增销售操作步骤。
+      if ($("#final_prompt").value.trim()) generate();
+    }
+
+    function updateBenefitsCount() {
+      $("#benefitsCount").textContent = String(Array.from($("#benefits").value).length);
+    }
+
+    function setAdvancedMode(on) {
+      const sw = $("#advModeSwitch");
+      sw.classList.toggle("off", !on);
+      sw.setAttribute("aria-checked", on ? "true" : "false");
+      $("#detailElementGroups").classList.toggle("hidden", !on);
+    }
+
+    function resetForm() {
+      setSceneSelected("");
+      $("#product_name").value = "";
+      $("#activity_info").value = "";
+      $("#time_info").value = "";
+      $("#quota_info").value = "";
+      $("#benefits").value = "";
+      updateBenefitsCount();
+      setStyleSelected(AUTO_RECOMMEND);
+      setLayoutSelected(AUTO_RECOMMEND);
+      $$("input[name='element_preference']").forEach((item) => { item.checked = item.value === AUTO_RECOMMEND; });
+      $("#detailElementGroups").innerHTML = "";
+      $("input[name='image_ratio'][value='9:16']").checked = true;
+      setAdvancedMode(true);
+      setProfile(DEFAULT_PROFILE);
+      clearResult();
+      updateInlineWarnings({ errors: [], warnings: [], needsModify: [] }, getSalesInput());
+    }
+
+    function clearResult() {
+      $("#final_prompt").value = "";
+      $("#copyMessage").textContent = "";
+      $("#genTime").textContent = "尚未生成";
+      $("#negativePromptText").textContent = fallbackNegativeTerms.join("、");
+      renderSafetySummary({ key: "blocked", status_label: "已阻断", summary_message: "请先补全必要信息，再生成可复制提示词。", safe_to_copy: false, visible_warnings_for_sales: [] });
+      renderVisualSummary(null, "已阻断");
+      updateSelectionTags(getSalesInput(), null);
+    }
+
+    $("#generateBtn").addEventListener("click", generate);
+    $("#copyBtn").addEventListener("click", copyFinalPrompt);
+    $("#resetBtn").addEventListener("click", resetForm);
+    $("#clearResultBtn").addEventListener("click", clearResult);
+
+    $("#sceneGroup").addEventListener("click", (event) => {
+      const btn = event.target.closest(".scene-btn");
+      if (!btn) return;
+      setSceneSelected(btn.classList.contains("selected") ? "" : btn.dataset.scene);
+      afterSelectionChange();
+    });
+    $("#styleGroup").addEventListener("click", (event) => {
+      const card = event.target.closest(".opt-card");
+      if (!card) return;
+      setStyleSelected(card.dataset.style);
+      afterSelectionChange();
+    });
+    $("#layoutGroup").addEventListener("click", (event) => {
+      const card = event.target.closest(".opt-card");
+      if (!card) return;
+      setLayoutSelected(card.dataset.layout);
+      afterSelectionChange();
+    });
+    $("#profileSwitch").addEventListener("click", (event) => {
+      const opt = event.target.closest(".profile-opt");
+      if (opt) setProfile(opt.dataset.profile);
+    });
+    $("#advModeSwitch").addEventListener("click", () => setAdvancedMode($("#advModeSwitch").classList.contains("off")));
+    $("#advModeSwitch").addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setAdvancedMode($("#advModeSwitch").classList.contains("off")); }
+    });
+
+    $("#element_preference").addEventListener("change", syncElementPreference);
+    $("#element_preference").addEventListener("change", () => updateSelectionTags(getSalesInput(), null));
+    $("#detailElementGroups").addEventListener("click", (event) => {
+      const chip = event.target.closest(".detail-chip");
+      if (!chip) return;
+      toggleDetailElement(chip.dataset.group, chip.dataset.name);
+    });
+
+    $("#benefits").addEventListener("input", updateBenefitsCount);
+    ["#product_name", "#activity_info", "#time_info", "#quota_info", "#benefits"].forEach((selector) => {
+      $(selector).addEventListener("input", () => { const salesInput = getSalesInput(); updateInlineWarnings(validateSalesInput(salesInput), salesInput); });
+      $(selector).addEventListener("change", () => { const salesInput = getSalesInput(); updateInlineWarnings(validateSalesInput(salesInput), salesInput); });
+    });
+    $$("input[name='image_ratio']").forEach((item) => item.addEventListener("change", () => { const salesInput = getSalesInput(); updateInlineWarnings(validateSalesInput(salesInput), salesInput); }));
+
+    renderDetailElementGroups();
+    updateBenefitsCount();
+    setAdvancedMode(true);
+    setProfile(DEFAULT_PROFILE);
+    updateSelectionTags(getSalesInput(), null);
+    initPostHogAnalytics();
+    trackAnalyticsEvent("haibao_console_page_view", {
+      ...ANALYTICS_COMMON_PROPS,
+      ...ANALYTICS_METRIC_LABELS.page_view,
+      app_stage: "stage11_2A",
+      ui_mode: "static_ui_first",
+      has_posthog_config: Boolean(HAIBAO_ANALYTICS_GLOBAL.HAIBAO_ANALYTICS_CONFIG),
+      version: "stage11.2A"
+    });
+
+  </script>
+
+
+</body>
+</html>
